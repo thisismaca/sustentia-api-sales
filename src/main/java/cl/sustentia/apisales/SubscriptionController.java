@@ -28,13 +28,18 @@ public class SubscriptionController {
         return registerCard(customerResponseEntity.getBody().getCustomerId());
     }
 
+    @RequestMapping(value = "/register/result", method = RequestMethod.POST)
+    public String registerResult(@RequestBody String token) {
+        return token;
+    }
+
     ResponseEntity<CreditRegistrationURL> registerCard(String customerId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> customerCardRegistration = new LinkedMultiValueMap<>();
         customerCardRegistration.add("apiKey", System.getenv("FLOW-API-KEY"));
         customerCardRegistration.add("customerId", customerId);
-        customerCardRegistration.add("url_return", "http://localhost:8080/api-sales/v1/subscription/register/result");
+        customerCardRegistration.add("url_return", "https://sustentia-gateway-ds0d28il.uc.gateway.dev/api-sales/v1/subscription/register/result");
         try {
             customerCardRegistration.add("s", sign(buildMessage(customerCardRegistration)));
         } catch (UnsupportedEncodingException e) {
