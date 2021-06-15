@@ -1,49 +1,68 @@
 package cl.sustentia.apisales;
 
-import java.io.UnsupportedEncodingException;
-import java.math.BigInteger;
-
 public class Customer {
 
-    private String apiKey;
-    private String name;
-    private String email;
-    private String externalId;
-    private String s;
+    private final String customerId;
+    private final String created;
+    private final String email;
+    private final String name;
+    private final String pay_mode;
+    private final String creditCardType;
+    private final String last4CardDigits;
+    private final String externalId;
+    private final String status;
+    private final String registerDate;
 
-    public Customer(String name, String email, String externalId) {
-        this.apiKey = System.getenv("FLOW-API-KEY");
-        this.name = name;
+    public Customer(String customerId, String created, String email, String name, String pay_mode, String creditCardType, String last4CardDigits, String externalId, String status, String registerDate) {
+        this.customerId = customerId;
+        this.created = created;
         this.email = email;
+        this.name = name;
+        this.pay_mode = pay_mode;
+        this.creditCardType = creditCardType;
+        this.last4CardDigits = last4CardDigits;
         this.externalId = externalId;
-        try {
-            this.s = String.format("%064x", new BigInteger(1, HMAC.calcHmacSha256(System.getenv("FLOW-SECRET-KEY").getBytes("UTF-8"), getMessageToSign().getBytes("UTF-8"))));
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        this.status = status;
+        this.registerDate = registerDate;
     }
 
-    String getMessageToSign() {
-        return "apiKey"+System.getenv("FLOW-API-KEY")+"email"+email+"externalId"+externalId+"name"+name;
+    public String getCustomerId() {
+        return customerId;
     }
 
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public String getName() {
-        return name;
+    public String getCreated() {
+        return created;
     }
 
     public String getEmail() {
         return email;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public String getPay_mode() {
+        return pay_mode;
+    }
+
+    public String getCreditCardType() {
+        return creditCardType;
+    }
+
+    public String getLast4CardDigits() {
+        return last4CardDigits;
+    }
+
     public String getExternalId() {
         return externalId;
     }
 
-    public String getS() {
-        return s;
+    public String getStatus() {
+        return status;
+    }
+
+    public String getRegisterDate() {
+        return registerDate;
     }
 }
