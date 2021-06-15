@@ -11,7 +11,7 @@ public class SubscriptionRecord {
     private final String flowCustomerId;
     private final String subscriptionId;
     private final String planId;
-    private final boolean paid;
+    private boolean paid;
 
     public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid) {
         this.storeId = storeId;
@@ -39,5 +39,9 @@ public class SubscriptionRecord {
 
     public boolean isPaid() {
         return paid;
+    }
+
+    public void setPaid(boolean paid) {
+        this.paid = paid;
     }
 }

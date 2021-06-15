@@ -28,8 +28,14 @@ public class SubscriptionController {
 
     @PostMapping("/get")
     public ResponseEntity<SubscriptionRecord> getStore(@RequestBody SubscriptionRecord subscriptionRecord) {
-        var mongoResponse = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
-        return ResponseEntity.status(HttpStatus.OK).body(mongoResponse.get());
+        var localSubscription = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
+        var flowSubscription = getFlowSubscription(localSubscription.get().getSubscriptionId());
+        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0;
+        if(localSubscription.get().isPaid() == false && isPaidInFlow == true) {
+            subscriptionRecord.setPaid(isPaidInFlow);
+            return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
+        }
+        return ResponseEntity.status(HttpStatus.OK).body(localSubscription.get());
     }
 
     @PostMapping(value = "/register")
@@ -70,6 +76,24 @@ public class SubscriptionController {
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(subscription, headers);
         return restTemplate.postForEntity(
                 "https://sandbox.flow.cl/api/subscription/create", request , FlowSubscription.class);
+    }
+
+    ResponseEntity<FlowSubscription> getFlowSubscription(String subscriptionId) {
+        MultiValueMap<String, String> subscription = new LinkedMultiValueMap<>();
+        subscription.add("apiKey", System.getenv("FLOW-API-KEY"));
+        subscription.add("subscriptionId", subscriptionId);
+        try {
+            subscription.add("s", sign(buildMessage(subscription)));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+//        try {
+//            String paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&subscriptionId=" + subscriptionId + "&s=" + sign("apiKey"+System.getenv("FLOW-API-KEY")+"subscriptionId"+subscriptionId);
+//        } catch (UnsupportedEncodingException e) {
+//            e.printStackTrace();
+//        }
+        return restTemplate.getForEntity(
+                "https://sandbox.flow.cl/api/subscription/get?", FlowSubscription.class, subscription);
     }
 
 
