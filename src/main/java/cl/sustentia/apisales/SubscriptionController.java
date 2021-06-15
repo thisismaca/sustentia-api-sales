@@ -22,11 +22,27 @@ public class SubscriptionController {
     @Autowired
     private RestTemplate restTemplate;
 
-    @RequestMapping(value = "/add", method = RequestMethod.POST)
-    public ResponseEntity<Customer> createProducts(@RequestBody Subscription subscription) {
+    @RequestMapping(value = "/register", method = RequestMethod.POST)
+    public ResponseEntity<CreditRegistrationURL> register(@RequestBody Subscription subscription) {
         ResponseEntity<Customer> customerResponseEntity = addCustomer(subscription);
-        System.out.println(customerResponseEntity.getBody().getCustomerId());
-        return customerResponseEntity;
+        return registerCard(customerResponseEntity.getBody().getCustomerId());
+    }
+
+    ResponseEntity<CreditRegistrationURL> registerCard(String customerId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        MultiValueMap<String, String> customerCardRegistration = new LinkedMultiValueMap<>();
+        customerCardRegistration.add("apiKey", System.getenv("FLOW-API-KEY"));
+        customerCardRegistration.add("customerId", customerId);
+        customerCardRegistration.add("url_return", "http://localhost:8080/api-sales/v1/subscription/register/result");
+        try {
+            customerCardRegistration.add("s", sign(buildMessage(customerCardRegistration)));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(customerCardRegistration, headers);
+        return restTemplate.postForEntity(
+                "https://sandbox.flow.cl/api/customer/register", request , CreditRegistrationURL.class);
     }
 
     ResponseEntity<Customer> addCustomer(Subscription subscription) {
