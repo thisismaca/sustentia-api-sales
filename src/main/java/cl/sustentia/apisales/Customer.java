@@ -1,30 +1,29 @@
 package cl.sustentia.apisales;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class Customer {
 
-    private final String customerId;
-    private final String created;
-    private final String email;
-    private final String name;
-    private final String pay_mode;
-    private final String creditCardType;
-    private final String last4CardDigits;
-    private final String externalId;
-    private final String status;
-    private final String registerDate;
-
-    public Customer(String customerId, String created, String email, String name, String pay_mode, String creditCardType, String last4CardDigits, String externalId, String status, String registerDate) {
-        this.customerId = customerId;
-        this.created = created;
-        this.email = email;
-        this.name = name;
-        this.pay_mode = pay_mode;
-        this.creditCardType = creditCardType;
-        this.last4CardDigits = last4CardDigits;
-        this.externalId = externalId;
-        this.status = status;
-        this.registerDate = registerDate;
-    }
+    @JsonProperty("customerId")
+    private String customerId;
+    @JsonProperty("created")
+    private String created;
+    @JsonProperty("email")
+    private String email;
+    @JsonProperty("name")
+    private String name;
+    @JsonProperty("pay_mode")
+    private String pay_mode;
+    @JsonProperty("creditCardType")
+    private String creditCardType;
+    @JsonProperty("last4CardDigits")
+    private String last4CardDigits;
+    @JsonProperty("externalId")
+    private String externalId;
+    @JsonProperty("status")
+    private String status;
+    @JsonProperty("registerDate")
+    private String registerDate;
 
     public String getCustomerId() {
         return customerId;

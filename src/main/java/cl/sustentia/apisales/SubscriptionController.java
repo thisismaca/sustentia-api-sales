@@ -12,11 +12,8 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
-import java.util.List;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping(path = "api-sales/v1/subscription")
@@ -26,9 +23,10 @@ public class SubscriptionController {
     private RestTemplate restTemplate;
 
     @RequestMapping(value = "/add", method = RequestMethod.POST)
-    public ResponseEntity<String> createProducts(@RequestBody Subscription subscription) {
+    public ResponseEntity<Customer> createProducts(@RequestBody Subscription subscription) {
         ResponseEntity<Customer> customerResponseEntity = addCustomer(subscription);
-        return null;
+        System.out.println(customerResponseEntity.getBody().getCustomerId());
+        return customerResponseEntity;
     }
 
     ResponseEntity<Customer> addCustomer(Subscription subscription) {
