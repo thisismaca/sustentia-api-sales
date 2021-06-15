@@ -23,32 +23,51 @@ public class SubscriptionController {
     private RestTemplate restTemplate;
 
     @RequestMapping(value = "/register", method = RequestMethod.POST)
-    public ResponseEntity<CreditRegistrationURL> register(@RequestBody Subscription subscription) {
+    public ResponseEntity<FlowSubscription> register(@RequestBody Subscription subscription) {
         ResponseEntity<Customer> customerResponseEntity = addCustomer(subscription);
-        return registerCard(customerResponseEntity.getBody().getCustomerId());
+        return subscribe(customerResponseEntity.getBody().getCustomerId(), subscription.getPlanId());
     }
 
-    @RequestMapping(value = "/register/result", method = RequestMethod.POST)
-    public String registerResult(@RequestBody String token) {
-        return token;
-    }
+//    @RequestMapping(value = "/register/result", method = RequestMethod.POST)
+//    public String registerResult(@RequestBody String token) {
+//        return token;
+//    }
 
-    ResponseEntity<CreditRegistrationURL> registerCard(String customerId) {
+    ResponseEntity<FlowSubscription> subscribe(String customerId, String planId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        MultiValueMap<String, String> customerCardRegistration = new LinkedMultiValueMap<>();
-        customerCardRegistration.add("apiKey", System.getenv("FLOW-API-KEY"));
-        customerCardRegistration.add("customerId", customerId);
-        customerCardRegistration.add("url_return", "https://sustentia-gateway-ds0d28il.uc.gateway.dev/api-sales/v1/subscription/register/result");
+        MultiValueMap<String, String> subscription = new LinkedMultiValueMap<>();
+        subscription.add("apiKey", System.getenv("FLOW-API-KEY"));
+        subscription.add("planId", planId);
+        subscription.add("customerId", customerId);
         try {
-            customerCardRegistration.add("s", sign(buildMessage(customerCardRegistration)));
+            subscription.add("s", sign(buildMessage(subscription)));
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(customerCardRegistration, headers);
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(subscription, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/customer/register", request , CreditRegistrationURL.class);
+                "https://sandbox.flow.cl/api/subscription/create", request , FlowSubscription.class);
     }
+
+
+
+//    ResponseEntity<CreditRegistrationURL> registerCard(String customerId) {
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+//        MultiValueMap<String, String> customerCardRegistration = new LinkedMultiValueMap<>();
+//        customerCardRegistration.add("apiKey", System.getenv("FLOW-API-KEY"));
+//        customerCardRegistration.add("customerId", customerId);
+//        customerCardRegistration.add("url_return", "https://sustentia-gateway-ds0d28il.uc.gateway.dev/api-sales/v1/subscription/register/result");
+//        try {
+//            customerCardRegistration.add("s", sign(buildMessage(customerCardRegistration)));
+//        } catch (UnsupportedEncodingException e) {
+//            e.printStackTrace();
+//        }
+//        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(customerCardRegistration, headers);
+//        return restTemplate.postForEntity(
+//                "https://sandbox.flow.cl/api/customer/register", request , CreditRegistrationURL.class);
+//    }
 
     ResponseEntity<Customer> addCustomer(Subscription subscription) {
         HttpHeaders headers = new HttpHeaders();
