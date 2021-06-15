@@ -4,10 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.UnsupportedEncodingException;
@@ -22,10 +19,35 @@ public class SubscriptionController {
     @Autowired
     private RestTemplate restTemplate;
 
-    @RequestMapping(value = "/register", method = RequestMethod.POST)
-    public ResponseEntity<FlowSubscription> register(@RequestBody Subscription subscription) {
+    private final SubscriptionRecordRepository subscriptionRecordRepository;
+
+    @Autowired
+    public SubscriptionController(SubscriptionRecordRepository subscriptionRecordRepository) {
+        this.subscriptionRecordRepository = subscriptionRecordRepository;
+    }
+
+    @PostMapping("/get")
+    public ResponseEntity<SubscriptionRecord> getStore(@RequestBody SubscriptionRecord subscriptionRecord) {
+        var mongoResponse = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
+        return ResponseEntity.status(HttpStatus.OK).body(mongoResponse.get());
+    }
+
+    @PostMapping(value = "/register")
+    public ResponseEntity<SubscriptionRecord> register(@RequestBody Subscription subscription) {
         ResponseEntity<Customer> customerResponseEntity = addCustomer(subscription);
-        return subscribe(customerResponseEntity.getBody().getCustomerId(), subscription.getPlanId());
+        if(!customerResponseEntity.getStatusCode().is2xxSuccessful()) {
+            return ResponseEntity.status(customerResponseEntity.getStatusCode()).build();
+        }
+        String customerId = customerResponseEntity.getBody().getCustomerId();
+
+        ResponseEntity<FlowSubscription> subscriptionResponse = subscribe(customerId, subscription.getPlanId());
+        if (!subscriptionResponse.getStatusCode().is2xxSuccessful()) {
+            return ResponseEntity.status(subscriptionResponse.getStatusCode()).build();
+        }
+
+        boolean paymentConfirmed = subscriptionResponse.getBody().getStatus() == 1 && subscriptionResponse.getBody().getMorose() == 0;
+        SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), paymentConfirmed);
+        return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
     }
 
 //    @RequestMapping(value = "/register/result", method = RequestMethod.POST)
@@ -75,7 +97,7 @@ public class SubscriptionController {
         MultiValueMap<String, String> customerMap= new LinkedMultiValueMap<>();
         customerMap.add("apiKey", System.getenv("FLOW-API-KEY"));
         customerMap.add("email", subscription.getEmail());
-        customerMap.add("externalId", subscription.getExternalId());
+        customerMap.add("externalId", subscription.getStoreId());
         customerMap.add("name", subscription.getName());
         try {
             customerMap.add("s", sign(buildMessage(customerMap)));

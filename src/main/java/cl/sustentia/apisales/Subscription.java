@@ -3,13 +3,13 @@ package cl.sustentia.apisales;
 public class Subscription {
     private final String name;
     private final String email;
-    private final String externalId;
+    private final String storeId;
     private final String planId;
 
-    public Subscription(String name, String email, String externalId, String planId) {
+    public Subscription(String name, String email, String storeId, String planId) {
         this.name = name;
         this.email = email;
-        this.externalId = externalId;
+        this.storeId = storeId;
         this.planId = planId;
     }
 
@@ -21,8 +21,8 @@ public class Subscription {
         return email;
     }
 
-    public String getExternalId() {
-        return externalId;
+    public String getStoreId() {
+        return storeId;
     }
 
     public String getPlanId() {

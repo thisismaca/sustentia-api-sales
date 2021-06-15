@@ -9,9 +9,9 @@ public class FlowSubscription {
     @JsonProperty("customerId")
     private String customerId;
     @JsonProperty("status")
-    private String status;
+    private int status;
     @JsonProperty("morose")
-    private String morose;
+    private int morose;
 
 
     public String getSubscriptionId() {
@@ -22,11 +22,11 @@ public class FlowSubscription {
         return customerId;
     }
 
-    public String getStatus() {
+    public int getStatus() {
         return status;
     }
 
-    public String getMorose() {
+    public int getMorose() {
         return morose;
     }
 }
