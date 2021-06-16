@@ -79,21 +79,14 @@ public class SubscriptionController {
     }
 
     ResponseEntity<FlowSubscription> getFlowSubscription(String subscriptionId) {
-        MultiValueMap<String, String> subscription = new LinkedMultiValueMap<>();
-        subscription.add("apiKey", System.getenv("FLOW-API-KEY"));
-        subscription.add("subscriptionId", subscriptionId);
+        String paramsUrl = "";
         try {
-            subscription.add("s", sign(buildMessage(subscription)));
+            paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&subscriptionId=" + subscriptionId + "&s=" + sign("apiKey"+System.getenv("FLOW-API-KEY")+"subscriptionId"+subscriptionId);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
-//        try {
-//            String paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&subscriptionId=" + subscriptionId + "&s=" + sign("apiKey"+System.getenv("FLOW-API-KEY")+"subscriptionId"+subscriptionId);
-//        } catch (UnsupportedEncodingException e) {
-//            e.printStackTrace();
-//        }
         return restTemplate.getForEntity(
-                "https://sandbox.flow.cl/api/subscription/get?", FlowSubscription.class, subscription);
+                "https://sandbox.flow.cl/api/subscription/get?" + paramsUrl, FlowSubscription.class);
     }
 
 
