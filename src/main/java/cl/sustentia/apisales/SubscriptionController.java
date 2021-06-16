@@ -33,6 +33,7 @@ public class SubscriptionController {
         boolean isPaidInFlow = flowSubscription.getBody().getInvoices().get(0).getStatus() == 1;
         if(localSubscription.get().isPaid() != isPaidInFlow) {
             localSubscription.get().setPaid(isPaidInFlow);
+            if(!isPaidInFlow) localSubscription.get().setPaymentLink(flowSubscription.getBody().getInvoices().get(0).getPaymentLink());
             return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(localSubscription.get()));
         }
         return ResponseEntity.status(HttpStatus.OK).body(localSubscription.get());
@@ -52,7 +53,8 @@ public class SubscriptionController {
         }
 
         boolean paymentConfirmed = subscriptionResponse.getBody().getInvoices().get(0).getStatus() == 1;
-        SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), paymentConfirmed);
+        String paymentLink = subscriptionResponse.getBody().getInvoices().get(0).getPaymentLink();
+        SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), paymentConfirmed, paymentLink);
         return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
     }
 

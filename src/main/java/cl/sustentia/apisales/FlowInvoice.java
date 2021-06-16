@@ -8,6 +8,8 @@ public class FlowInvoice {
     private String id;
     @JsonProperty("status")
     private int status;
+    @JsonProperty("paymentLink")
+    private String paymentLink;
 
     public String getId() {
         return id;
@@ -15,5 +17,9 @@ public class FlowInvoice {
 
     public int getStatus() {
         return status;
+    }
+
+    public String getPaymentLink() {
+        return paymentLink;
     }
 }

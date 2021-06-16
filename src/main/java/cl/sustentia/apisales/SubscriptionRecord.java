@@ -12,13 +12,15 @@ public class SubscriptionRecord {
     private final String subscriptionId;
     private final String planId;
     private boolean paid;
+    private String paymentLink;
 
-    public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid) {
+    public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid, String paymentLink) {
         this.storeId = storeId;
         this.flowCustomerId = flowCustomerId;
         this.subscriptionId = subscriptionId;
         this.paid = paid;
         this.planId = planId;
+        this.paymentLink = paymentLink;
     }
 
     public String getStoreId() {
@@ -41,7 +43,15 @@ public class SubscriptionRecord {
         return paid;
     }
 
+    public String getPaymentLink() {
+        return paymentLink;
+    }
+
     public void setPaid(boolean paid) {
         this.paid = paid;
+    }
+
+    public void setPaymentLink(String paymentLink) {
+        this.paymentLink = paymentLink;
     }
 }
