@@ -2,6 +2,8 @@ package cl.sustentia.apisales;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
+
 public class FlowSubscription {
 
     @JsonProperty("subscriptionId")
@@ -12,6 +14,8 @@ public class FlowSubscription {
     private int status;
     @JsonProperty("morose")
     private int morose;
+    @JsonProperty("invoices")
+    private List<FlowInvoice> invoices;
 
 
     public String getSubscriptionId() {
@@ -28,5 +32,9 @@ public class FlowSubscription {
 
     public int getMorose() {
         return morose;
+    }
+
+    public List<FlowInvoice> getInvoices() {
+        return invoices;
     }
 }

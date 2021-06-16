@@ -30,10 +30,10 @@ public class SubscriptionController {
     public ResponseEntity<SubscriptionRecord> getStore(@RequestBody SubscriptionRecord subscriptionRecord) {
         var localSubscription = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
         var flowSubscription = getFlowSubscription(localSubscription.get().getSubscriptionId());
-        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0;
-        if(localSubscription.get().isPaid() == false && isPaidInFlow == true) {
-            subscriptionRecord.setPaid(isPaidInFlow);
-            return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
+        boolean isPaidInFlow = flowSubscription.getBody().getInvoices().get(0).getStatus() == 1;
+        if(localSubscription.get().isPaid() != isPaidInFlow) {
+            localSubscription.get().setPaid(isPaidInFlow);
+            return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(localSubscription.get()));
         }
         return ResponseEntity.status(HttpStatus.OK).body(localSubscription.get());
     }
@@ -51,7 +51,7 @@ public class SubscriptionController {
             return ResponseEntity.status(subscriptionResponse.getStatusCode()).build();
         }
 
-        boolean paymentConfirmed = subscriptionResponse.getBody().getStatus() == 1 && subscriptionResponse.getBody().getMorose() == 0;
+        boolean paymentConfirmed = subscriptionResponse.getBody().getInvoices().get(0).getStatus() == 1;
         SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), paymentConfirmed);
         return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
     }
