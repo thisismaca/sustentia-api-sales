@@ -53,7 +53,8 @@ public class SubscriptionController {
         }
 
         boolean paymentConfirmed = subscriptionResponse.getBody().getInvoices().get(0).getStatus() == 1;
-        String paymentLink = subscriptionResponse.getBody().getInvoices().get(0).getPaymentLink();
+        String invoiceId = subscriptionResponse.getBody().getInvoices().get(0).getId();
+        String paymentLink = getInvoiceLink(invoiceId);
         SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), paymentConfirmed, paymentLink);
         return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
     }
@@ -62,6 +63,18 @@ public class SubscriptionController {
 //    public String registerResult(@RequestBody String token) {
 //        return token;
 //    }
+
+    String getInvoiceLink(String invoiceId) {
+        String paramsUrl = "";
+        try {
+            paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&invoiceId=" + invoiceId + "&s=" + sign("apiKey"+System.getenv("FLOW-API-KEY")+"invoiceId"+invoiceId);
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        var invoiceRequest = restTemplate.getForEntity(
+                "https://sandbox.flow.cl/api/invoice/get?" + paramsUrl, FlowInvoice.class);
+        return invoiceRequest.getBody().getPaymentLink();
+    }
 
     ResponseEntity<FlowSubscription> subscribe(String customerId, String planId) {
         HttpHeaders headers = new HttpHeaders();
