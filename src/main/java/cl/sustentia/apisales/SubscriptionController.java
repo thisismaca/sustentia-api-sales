@@ -26,7 +26,7 @@ public class SubscriptionController {
         this.subscriptionRecordRepository = subscriptionRecordRepository;
     }
 
-    @CrossOrigin("*")
+    @CrossOrigin(origins = "http://localhost:23930")
     @PostMapping("/get")
     public ResponseEntity<SubscriptionRecord> getSubscription(@RequestBody SubscriptionRecord subscriptionRecord) {
         var localSubscription = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
@@ -40,7 +40,7 @@ public class SubscriptionController {
         return ResponseEntity.status(HttpStatus.OK).body(localSubscription.get());
     }
 
-    @CrossOrigin("*")
+    @CrossOrigin(origins = "http://localhost:23930")
     @PostMapping(value = "/register")
     public ResponseEntity<SubscriptionRecord> register(@RequestBody Subscription subscription) {
         ResponseEntity<Customer> customerResponseEntity = addCustomer(subscription);
