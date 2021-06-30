@@ -30,8 +30,14 @@ public class SubscriptionController {
     @PostMapping("/get")
     public ResponseEntity<SubscriptionRecord> getSubscription(@RequestBody SubscriptionRecord subscriptionRecord) {
         var localSubscription = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
+        if(localSubscription.isEmpty()) return ResponseEntity.status(HttpStatus.OK).build();
+
         var flowSubscription = getFlowSubscription(localSubscription.get().getSubscriptionId());
+        if(!flowSubscription.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(flowSubscription.getStatusCode()).build();
+
+        if(flowSubscription.getBody() == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         boolean isPaidInFlow = flowSubscription.getBody().getInvoices().get(0).getStatus() == 1;
+
         if(localSubscription.get().isPaid() != isPaidInFlow) {
             localSubscription.get().setPaid(isPaidInFlow);
             if(!isPaidInFlow) localSubscription.get().setPaymentLink(flowSubscription.getBody().getInvoices().get(0).getPaymentLink());
