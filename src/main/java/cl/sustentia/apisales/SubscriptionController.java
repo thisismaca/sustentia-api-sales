@@ -9,6 +9,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -50,21 +51,30 @@ public class SubscriptionController {
     @PostMapping(value = "/register")
     public ResponseEntity<SubscriptionRecord> register(@RequestBody Subscription subscription) {
         ResponseEntity<Customer> customerResponseEntity = addCustomer(subscription);
-        if(!customerResponseEntity.getStatusCode().is2xxSuccessful()) {
-            return ResponseEntity.status(customerResponseEntity.getStatusCode()).build();
+        String customerId = "";
+
+        if(customerResponseEntity.getStatusCode().is4xxClientError()) { //Client already exists
+            customerId = subscription.getStoreId();
+        } else {
+            if(!customerResponseEntity.getStatusCode().is2xxSuccessful()) { //Response is other than 200 or 400
+                return ResponseEntity.status(customerResponseEntity.getStatusCode()).build();
+            } else if (customerResponseEntity.getBody() != null) { //Response is 200 and has body
+                customerId = customerResponseEntity.getBody().getCustomerId();
+            }
         }
-        String customerId = customerResponseEntity.getBody().getCustomerId();
 
         ResponseEntity<FlowSubscription> subscriptionResponse = subscribe(customerId, subscription.getPlanId());
-        if (!subscriptionResponse.getStatusCode().is2xxSuccessful()) {
+
+        if(subscriptionResponse.getStatusCode().is2xxSuccessful() && subscriptionResponse.getBody() != null) {
+            boolean paymentConfirmed = subscriptionResponse.getBody().getInvoices().get(0).getStatus() == 1;
+            String invoiceId = subscriptionResponse.getBody().getInvoices().get(0).getId();
+            String paymentLink = getInvoiceLink(invoiceId);
+            if (paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), paymentConfirmed, paymentLink);
+            return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
+        } else {
             return ResponseEntity.status(subscriptionResponse.getStatusCode()).build();
         }
-
-        boolean paymentConfirmed = subscriptionResponse.getBody().getInvoices().get(0).getStatus() == 1;
-        String invoiceId = subscriptionResponse.getBody().getInvoices().get(0).getId();
-        String paymentLink = getInvoiceLink(invoiceId);
-        SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), paymentConfirmed, paymentLink);
-        return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
     }
 
 //    @RequestMapping(value = "/register/result", method = RequestMethod.POST)
@@ -81,7 +91,9 @@ public class SubscriptionController {
         }
         var invoiceRequest = restTemplate.getForEntity(
                 "https://sandbox.flow.cl/api/invoice/get?" + paramsUrl, FlowInvoice.class);
+        if (invoiceRequest.getStatusCode().is2xxSuccessful() && invoiceRequest.getBody() != null)
         return invoiceRequest.getBody().getPaymentLink();
+        else return null;
     }
 
     ResponseEntity<FlowSubscription> subscribe(String customerId, String planId) {
@@ -159,6 +171,6 @@ public class SubscriptionController {
     }
 
     private String sign(String message) throws UnsupportedEncodingException {
-        return String.format("%064x", new BigInteger(1, HMAC.calcHmacSha256(System.getenv("FLOW-SECRET-KEY").getBytes("UTF-8"), message.getBytes("UTF-8"))));
+        return String.format("%064x", new BigInteger(1, HMAC.calcHmacSha256(System.getenv("FLOW-SECRET-KEY").getBytes(StandardCharsets.UTF_8), message.getBytes(StandardCharsets.UTF_8))));
     }
 }
