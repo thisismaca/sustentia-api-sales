@@ -53,14 +53,11 @@ public class SubscriptionController {
         ResponseEntity<Customer> customerResponseEntity = addCustomer(subscription);
         String customerId = "";
 
-        if(customerResponseEntity.getStatusCode().is4xxClientError()) { //Client already exists
-            customerId = subscription.getStoreId();
-        } else {
-            if(!customerResponseEntity.getStatusCode().is2xxSuccessful()) { //Response is other than 200 or 400
-                return ResponseEntity.status(customerResponseEntity.getStatusCode()).build();
-            } else if (customerResponseEntity.getBody() != null) { //Response is 200 and has body
-                customerId = customerResponseEntity.getBody().getCustomerId();
-            }
+        if(!customerResponseEntity.getStatusCode().is2xxSuccessful()) { //Response is other than 200, client already exists is code 401
+            return ResponseEntity.status(customerResponseEntity.getStatusCode()).build();
+        }
+        if (customerResponseEntity.getBody() != null) { //Response is 200 and has body
+            customerId = customerResponseEntity.getBody().getCustomerId();
         }
 
         ResponseEntity<FlowSubscription> subscriptionResponse = subscribe(customerId, subscription.getPlanId());
