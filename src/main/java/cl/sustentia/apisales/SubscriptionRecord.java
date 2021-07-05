@@ -3,6 +3,8 @@ package cl.sustentia.apisales;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.MongoId;
 
+import java.time.ZonedDateTime;
+
 @Document(collection = "subscriptions")
 public class SubscriptionRecord {
 
@@ -13,14 +15,16 @@ public class SubscriptionRecord {
     private final String planId;
     private boolean paid;
     private String paymentLink;
+    private ZonedDateTime timestamp;
 
-    public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid, String paymentLink) {
+    public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid, String paymentLink, ZonedDateTime timestamp) {
         this.storeId = storeId;
         this.flowCustomerId = flowCustomerId;
         this.subscriptionId = subscriptionId;
         this.paid = paid;
         this.planId = planId;
         this.paymentLink = paymentLink;
+        this.timestamp = timestamp;
     }
 
     public String getStoreId() {
@@ -53,5 +57,9 @@ public class SubscriptionRecord {
 
     public void setPaymentLink(String paymentLink) {
         this.paymentLink = paymentLink;
+    }
+
+    public ZonedDateTime getTimestamp() {
+        return timestamp;
     }
 }

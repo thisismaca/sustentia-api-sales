@@ -10,6 +10,8 @@ import org.springframework.web.client.RestTemplate;
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -74,7 +76,10 @@ public class SubscriptionController {
             String invoiceId = subscriptionResponse.getBody().getInvoices().get(0).getId();
             String paymentLink = getInvoiceLink(invoiceId);
             if (paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), false/*paymentConfirmed*/, paymentLink);
+
+            ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+
+            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), false/*paymentConfirmed*/, paymentLink, now);
             return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
         } else {
             return ResponseEntity.status(subscriptionResponse.getStatusCode()).build();
