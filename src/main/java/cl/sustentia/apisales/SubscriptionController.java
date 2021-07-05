@@ -37,7 +37,7 @@ public class SubscriptionController {
         if(!flowSubscription.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(flowSubscription.getStatusCode()).build();
 
         if(flowSubscription.getBody() == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        boolean isPaidInFlow = flowSubscription.getBody().getInvoices().get(0).getStatus() == 1;
+        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0;
 
         if(localSubscription.get().isPaid() != isPaidInFlow) {
             localSubscription.get().setPaid(isPaidInFlow);
@@ -63,11 +63,18 @@ public class SubscriptionController {
         ResponseEntity<FlowSubscription> subscriptionResponse = subscribe(customerId, subscription.getPlanId());
 
         if(subscriptionResponse.getStatusCode().is2xxSuccessful() && subscriptionResponse.getBody() != null) {
+            /*
+            As soon as the subscription is created subscription status is "paid"
+            (status = 1, morose = 0), which is not true. This case works fine when
+            getting a subscription through the /get endpoint.
+            So, instead the real status
+
             boolean paymentConfirmed = subscriptionResponse.getBody().getInvoices().get(0).getStatus() == 1;
+             */
             String invoiceId = subscriptionResponse.getBody().getInvoices().get(0).getId();
             String paymentLink = getInvoiceLink(invoiceId);
             if (paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), paymentConfirmed, paymentLink);
+            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), false/*paymentConfirmed*/, paymentLink);
             return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
         } else {
             return ResponseEntity.status(subscriptionResponse.getStatusCode()).build();
