@@ -62,10 +62,32 @@ public class SubscriptionController {
             customerId = customerResponseEntity.getBody().getCustomerId();
         }
 
-        ResponseEntity<FlowSubscription> subscriptionResponse = subscribe(customerId, subscription.getPlanId());
+        ResponseEntity<FlowSubscription> subscriptionResponse = subscribe(customerId, subscription.getPlanId(), null);
 
-        if(subscriptionResponse.getStatusCode().is2xxSuccessful() && subscriptionResponse.getBody() != null) {
-            /*
+        return storeSubscription(subscriptionResponse, subscription.getStoreId(), customerId, subscription.getPlanId());
+    }
+
+    @CrossOrigin(origins = "http://localhost:23930")
+    @PostMapping(value = "/upgrade")
+    public ResponseEntity<SubscriptionRecord> upgrade(@RequestBody UpgradeSubscriptionRecord subscriptionRecord) {
+        try {
+            var cancelResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
+            if(!cancelResponse.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(cancelResponse.getStatusCode()).build();
+            subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
+            ResponseEntity<FlowSubscription> subscriptionResponse;
+            if(subscriptionRecord.isPaid()) {
+                subscriptionResponse = subscribe(subscriptionRecord.getFlowCustomerId(), subscriptionRecord.getPlanId(), subscriptionRecord.getCouponId());
+            } else {
+                subscriptionResponse = subscribe(subscriptionRecord.getFlowCustomerId(), subscriptionRecord.getPlanId(), null);
+            }
+            return storeSubscription(subscriptionResponse, subscriptionRecord.getStoreId(), subscriptionRecord.getFlowCustomerId(), subscriptionRecord.getPlanId());
+        } catch (Exception e) {
+            return  ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
+    private ResponseEntity<SubscriptionRecord> storeSubscription(ResponseEntity<FlowSubscription> flowSubscription, String storeId, String customerId, String planId) {
+        /*
             As soon as the subscription is created subscription status is "paid"
             (status = 1, morose = 0), which is not true. This case works fine when
             getting a subscription through the /get endpoint.
@@ -73,25 +95,20 @@ public class SubscriptionController {
 
             boolean paymentConfirmed = subscriptionResponse.getBody().getInvoices().get(0).getStatus() == 1;
              */
-            String invoiceId = subscriptionResponse.getBody().getInvoices().get(0).getId();
+        if (flowSubscription.getStatusCode().is2xxSuccessful() && flowSubscription.getBody() != null) {
+            String invoiceId = flowSubscription.getBody().getInvoices().get(0).getId();
             String paymentLink = getInvoiceLink(invoiceId);
             if (paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-
             ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
 
-            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(subscription.getStoreId(), customerId, subscriptionResponse.getBody().getSubscriptionId(), subscription.getPlanId(), false/*paymentConfirmed*/, paymentLink, now);
+            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(storeId, customerId, flowSubscription.getBody().getSubscriptionId(), planId, false, paymentLink, now);
             return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
         } else {
-            return ResponseEntity.status(subscriptionResponse.getStatusCode()).build();
+            return ResponseEntity.status(flowSubscription.getStatusCode()).build();
         }
     }
 
-//    @RequestMapping(value = "/register/result", method = RequestMethod.POST)
-//    public String registerResult(@RequestBody String token) {
-//        return token;
-//    }
-
-    String getInvoiceLink(String invoiceId) {
+    private String getInvoiceLink(String invoiceId) {
         String paramsUrl = "";
         try {
             paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&invoiceId=" + invoiceId + "&s=" + sign("apiKey"+System.getenv("FLOW-API-KEY")+"invoiceId"+invoiceId);
@@ -105,13 +122,14 @@ public class SubscriptionController {
         else return null;
     }
 
-    ResponseEntity<FlowSubscription> subscribe(String customerId, String planId) {
+    ResponseEntity<FlowSubscription> subscribe(String customerId, String planId, String couponId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> subscription = new LinkedMultiValueMap<>();
         subscription.add("apiKey", System.getenv("FLOW-API-KEY"));
         subscription.add("planId", planId);
         subscription.add("customerId", customerId);
+        if(couponId != null) subscription.add("couponId", couponId);
         try {
             subscription.add("s", sign(buildMessage(subscription)));
         } catch (UnsupportedEncodingException e) {
@@ -133,25 +151,6 @@ public class SubscriptionController {
                 "https://sandbox.flow.cl/api/subscription/get?" + paramsUrl, FlowSubscription.class);
     }
 
-
-
-//    ResponseEntity<CreditRegistrationURL> registerCard(String customerId) {
-//        HttpHeaders headers = new HttpHeaders();
-//        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-//        MultiValueMap<String, String> customerCardRegistration = new LinkedMultiValueMap<>();
-//        customerCardRegistration.add("apiKey", System.getenv("FLOW-API-KEY"));
-//        customerCardRegistration.add("customerId", customerId);
-//        customerCardRegistration.add("url_return", "https://sustentia-gateway-ds0d28il.uc.gateway.dev/api-sales/v1/subscription/register/result");
-//        try {
-//            customerCardRegistration.add("s", sign(buildMessage(customerCardRegistration)));
-//        } catch (UnsupportedEncodingException e) {
-//            e.printStackTrace();
-//        }
-//        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(customerCardRegistration, headers);
-//        return restTemplate.postForEntity(
-//                "https://sandbox.flow.cl/api/customer/register", request , CreditRegistrationURL.class);
-//    }
-
     ResponseEntity<Customer> addCustomer(Subscription subscription) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -168,6 +167,23 @@ public class SubscriptionController {
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(customerMap, headers);
         return restTemplate.postForEntity(
                 "https://sandbox.flow.cl/api/customer/create", request , Customer.class);
+    }
+
+    ResponseEntity<FlowSubscription> cancelSubscription(String subscriptionId, boolean cancelNow) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        MultiValueMap<String, String> cancelRequest = new LinkedMultiValueMap<>();
+        cancelRequest.add("apiKey", System.getenv("FLOW-API-KEY"));
+        cancelRequest.add("at_period_end", cancelNow ? "0" : "1");
+        cancelRequest.add("subscriptionId", subscriptionId);
+        try {
+            cancelRequest.add("s", sign(buildMessage(cancelRequest)));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(cancelRequest, headers);
+        return restTemplate.postForEntity(
+                "https://sandbox.flow.cl/api/subscription/cancel", request , FlowSubscription.class);
     }
 
     private String buildMessage(MultiValueMap<String, String> map) {
