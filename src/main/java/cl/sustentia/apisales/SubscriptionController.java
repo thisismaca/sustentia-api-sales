@@ -73,6 +73,9 @@ public class SubscriptionController {
         try {
             var cancelResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
             if(!cancelResponse.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(cancelResponse.getStatusCode()).build();
+            var invoiceId = cancelResponse.getBody().getInvoices().get(0).getId();
+            var cancelInvoiceResponse = cancelInvoice(invoiceId);
+            if(!cancelInvoiceResponse.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
             subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
             ResponseEntity<FlowSubscription> subscriptionResponse;
             if(subscriptionRecord.isPaid()) {
@@ -184,6 +187,22 @@ public class SubscriptionController {
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(cancelRequest, headers);
         return restTemplate.postForEntity(
                 "https://sandbox.flow.cl/api/subscription/cancel", request , FlowSubscription.class);
+    }
+
+    ResponseEntity<FlowInvoice> cancelInvoice(String invoiceId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        MultiValueMap<String, String> cancelRequest = new LinkedMultiValueMap<>();
+        cancelRequest.add("apiKey", System.getenv("FLOW-API-KEY"));
+        cancelRequest.add("invoiceId", invoiceId);
+        try {
+            cancelRequest.add("s", sign(buildMessage(cancelRequest)));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(cancelRequest, headers);
+        return restTemplate.postForEntity(
+                "https://sandbox.flow.cl/api/invoice/cancel", request , FlowInvoice.class);
     }
 
     private String buildMessage(MultiValueMap<String, String> map) {
