@@ -89,6 +89,21 @@ public class SubscriptionController {
         }
     }
 
+    //Cancellation by the end of the period. Only applies to paid subscriptions
+    @CrossOrigin(origins = "http://localhost:23930")
+    @PostMapping(value = "/cancel")
+    public ResponseEntity<SubscriptionRecord> cancel(@RequestBody SubscriptionRecord subscriptionRecord) {
+        try {
+            var cancelResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), false);
+            if(!cancelResponse.getStatusCode().is2xxSuccessful() || !cancelResponse.hasBody()) return ResponseEntity.status(cancelResponse.getStatusCode()).build();
+            var updatedSubscription = subscriptionRecord;
+            updatedSubscription.setEnd_date(cancelResponse.getBody().getPeriod_end());
+            return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(updatedSubscription));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
     private ResponseEntity<SubscriptionRecord> storeSubscription(ResponseEntity<FlowSubscription> flowSubscription, String storeId, String customerId, String planId) {
         /*
             As soon as the subscription is created subscription status is "paid"
@@ -104,7 +119,7 @@ public class SubscriptionController {
             if (paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
 
-            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(storeId, customerId, flowSubscription.getBody().getSubscriptionId(), planId, false, paymentLink, now);
+            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(storeId, customerId, flowSubscription.getBody().getSubscriptionId(), planId, false, null, paymentLink, now);
             return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
         } else {
             return ResponseEntity.status(flowSubscription.getStatusCode()).build();

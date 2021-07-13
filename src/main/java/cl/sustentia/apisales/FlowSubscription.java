@@ -10,6 +10,8 @@ public class FlowSubscription {
     private String subscriptionId;
     @JsonProperty("customerId")
     private String customerId;
+    @JsonProperty("period_end")
+    private String period_end;
     @JsonProperty("status")
     private int status;
     @JsonProperty("morose")
@@ -36,5 +38,9 @@ public class FlowSubscription {
 
     public List<FlowInvoice> getInvoices() {
         return invoices;
+    }
+
+    public String getPeriod_end() {
+        return period_end;
     }
 }

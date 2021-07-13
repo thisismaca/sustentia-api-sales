@@ -14,15 +14,17 @@ public class SubscriptionRecord {
     private final String subscriptionId;
     private final String planId;
     private boolean paid;
+    private String end_date;
     private String paymentLink;
     private ZonedDateTime timestamp;
 
-    public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid, String paymentLink, ZonedDateTime timestamp) {
+    public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid, String end_date, String paymentLink, ZonedDateTime timestamp) {
         this.storeId = storeId;
         this.flowCustomerId = flowCustomerId;
         this.subscriptionId = subscriptionId;
         this.paid = paid;
         this.planId = planId;
+        this.end_date = end_date;
         this.paymentLink = paymentLink;
         this.timestamp = timestamp;
     }
@@ -45,6 +47,14 @@ public class SubscriptionRecord {
 
     public boolean isPaid() {
         return paid;
+    }
+
+    public String getEnd_date() {
+        return end_date;
+    }
+
+    public void setEnd_date(String end_date) {
+        this.end_date = end_date;
     }
 
     public String getPaymentLink() {
