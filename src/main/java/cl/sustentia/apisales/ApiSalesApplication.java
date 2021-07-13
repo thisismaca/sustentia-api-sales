@@ -27,7 +27,8 @@ public class ApiSalesApplication {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/get").allowedOrigins("http://localhost:23930").allowedMethods("GET", "POST");
                 registry.addMapping("/register").allowedOrigins("http://localhost:23930").allowedMethods("GET", "POST");
-                registry.addMapping("/update").allowedOrigins("http://localhost:23930").allowedMethods("GET", "POST");
+                registry.addMapping("/upgrade").allowedOrigins("http://localhost:23930").allowedMethods("GET", "POST");
+                registry.addMapping("/cancel").allowedOrigins("http://localhost:23930").allowedMethods("GET", "POST");
             }
         };
     }
