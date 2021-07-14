@@ -2,7 +2,7 @@ package cl.sustentia.apisales;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class Customer {
+public class FlowCustomer {
 
     @JsonProperty("customerId")
     private String customerId;

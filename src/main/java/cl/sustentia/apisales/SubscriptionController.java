@@ -52,7 +52,7 @@ public class SubscriptionController {
     @CrossOrigin(origins = "http://localhost:23930")
     @PostMapping(value = "/register")
     public ResponseEntity<SubscriptionRecord> register(@RequestBody Subscription subscription) {
-        ResponseEntity<Customer> customerResponseEntity = addCustomer(subscription);
+        ResponseEntity<FlowCustomer> customerResponseEntity = addCustomer(subscription);
         String customerId = "";
 
         if(!customerResponseEntity.getStatusCode().is2xxSuccessful()) { //Response is other than 200, client already exists is code 401
@@ -73,10 +73,16 @@ public class SubscriptionController {
         try {
             var cancelResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
             if(!cancelResponse.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(cancelResponse.getStatusCode()).build();
-            var invoiceId = cancelResponse.getBody().getInvoices().get(0).getId();
-            var cancelInvoiceResponse = cancelInvoice(invoiceId);
-            if(!cancelInvoiceResponse.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
+
+            if(cancelResponse.getBody().getInvoices().get(0).getStatus() == 0) {
+                var invoiceId = cancelResponse.getBody().getInvoices().get(0).getId();
+                var cancelInvoiceResponse = cancelInvoiceRequest(invoiceId);
+                if (!cancelInvoiceResponse.getStatusCode().is2xxSuccessful())
+                    return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
+            }
+
             subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
+
             ResponseEntity<FlowSubscription> subscriptionResponse;
             if(subscriptionRecord.isPaid()) {
                 subscriptionResponse = subscribe(subscriptionRecord.getFlowCustomerId(), subscriptionRecord.getPlanId(), subscriptionRecord.getCouponId());
@@ -103,6 +109,31 @@ public class SubscriptionController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
+
+    //Cancellation by the end of the period. Only applies to paid subscriptions
+    @CrossOrigin(origins = "http://localhost:23930")
+    @PostMapping(value = "/delete")
+    public ResponseEntity<Boolean> delete(@RequestBody SubscriptionRecord subscriptionRecord) {
+        try {
+            var cancelSubscriptionResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
+            if(!cancelSubscriptionResponse.getStatusCode().is2xxSuccessful() || !cancelSubscriptionResponse.hasBody()) return ResponseEntity.status(cancelSubscriptionResponse.getStatusCode()).build();
+
+            if(cancelSubscriptionResponse.getBody().getInvoices().get(0).getStatus() == 0) { //Cancel only when invoice is pendant, or else it will throw 400. This statement should always be true in case of STA-76
+                var invoiceId = cancelSubscriptionResponse.getBody().getInvoices().get(0).getId();
+                var cancelInvoiceResponse = cancelInvoiceRequest(invoiceId);
+                if (!cancelInvoiceResponse.getStatusCode().is2xxSuccessful())
+                    return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
+            }
+            var deleteCustomerResponse = deleteCustomerRequest(subscriptionRecord.getFlowCustomerId());
+            if(!deleteCustomerResponse.getStatusCode().is2xxSuccessful() || !deleteCustomerResponse.hasBody()) return ResponseEntity.status(deleteCustomerResponse.getStatusCode()).build();
+            subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
+            return ResponseEntity.ok(true);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
+
 
     private ResponseEntity<SubscriptionRecord> storeSubscription(ResponseEntity<FlowSubscription> flowSubscription, String storeId, String customerId, String planId) {
         /*
@@ -169,7 +200,7 @@ public class SubscriptionController {
                 "https://sandbox.flow.cl/api/subscription/get?" + paramsUrl, FlowSubscription.class);
     }
 
-    ResponseEntity<Customer> addCustomer(Subscription subscription) {
+    ResponseEntity<FlowCustomer> addCustomer(Subscription subscription) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> customerMap= new LinkedMultiValueMap<>();
@@ -184,7 +215,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(customerMap, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/customer/create", request , Customer.class);
+                "https://sandbox.flow.cl/api/customer/create", request , FlowCustomer.class);
     }
 
     ResponseEntity<FlowSubscription> cancelSubscription(String subscriptionId, boolean cancelNow) {
@@ -204,7 +235,7 @@ public class SubscriptionController {
                 "https://sandbox.flow.cl/api/subscription/cancel", request , FlowSubscription.class);
     }
 
-    ResponseEntity<FlowInvoice> cancelInvoice(String invoiceId) {
+    ResponseEntity<FlowInvoice> cancelInvoiceRequest(String invoiceId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> cancelRequest = new LinkedMultiValueMap<>();
@@ -218,6 +249,22 @@ public class SubscriptionController {
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(cancelRequest, headers);
         return restTemplate.postForEntity(
                 "https://sandbox.flow.cl/api/invoice/cancel", request , FlowInvoice.class);
+    }
+
+    ResponseEntity<FlowCustomer> deleteCustomerRequest(String customerId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        MultiValueMap<String, String> deleteRequest = new LinkedMultiValueMap<>();
+        deleteRequest.add("apiKey", System.getenv("FLOW-API-KEY"));
+        deleteRequest.add("customerId", customerId);
+        try {
+            deleteRequest.add("s", sign(buildMessage(deleteRequest)));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(deleteRequest, headers);
+        return restTemplate.postForEntity(
+                "https://sandbox.flow.cl/api/customer/delete", request , FlowCustomer.class);
     }
 
     private String buildMessage(MultiValueMap<String, String> map) {
