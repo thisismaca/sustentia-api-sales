@@ -110,7 +110,7 @@ public class SubscriptionController {
         }
     }
 
-    //Cancellation by the end of the period. Only applies to paid subscriptions
+    //Instant cancellation and elimination of records.
     @CrossOrigin(origins = "http://localhost:23930")
     @PostMapping(value = "/delete")
     public ResponseEntity<Boolean> delete(@RequestBody SubscriptionRecord subscriptionRecord) {
