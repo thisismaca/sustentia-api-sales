@@ -39,7 +39,7 @@ public class SubscriptionController {
         if(!flowSubscription.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(flowSubscription.getStatusCode()).build();
 
         if(flowSubscription.getBody() == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0;
+        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0 && flowSubscription.getBody().getInvoices().get(0).getStatus() == 1;
 
         if(localSubscription.get().isPaid() != isPaidInFlow) {
             localSubscription.get().setPaid(isPaidInFlow);
