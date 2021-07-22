@@ -38,12 +38,17 @@ public class SubscriptionController {
         var flowSubscription = getFlowSubscription(localSubscription.get().getSubscriptionId());
         if(!flowSubscription.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(flowSubscription.getStatusCode()).build();
 
-        if(flowSubscription.getBody() == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0 && flowSubscription.getBody().getInvoices().get(0).getStatus() == 1;
+        if(!flowSubscription.hasBody()) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        FlowInvoice flowInvoice = flowSubscription.getBody().getInvoices().get(0);
+        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0 && flowInvoice.getStatus() == 1;
 
         if(localSubscription.get().isPaid() != isPaidInFlow) {
             localSubscription.get().setPaid(isPaidInFlow);
-            if(!isPaidInFlow) localSubscription.get().setPaymentLink(flowSubscription.getBody().getInvoices().get(0).getPaymentLink());
+            if(!isPaidInFlow) {
+                String paymentLink = getInvoiceLink(flowInvoice.getId());
+                if(paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                localSubscription.get().setPaymentLink(paymentLink);
+            }
             return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(localSubscription.get()));
         }
         return ResponseEntity.status(HttpStatus.OK).body(localSubscription.get());
@@ -55,10 +60,9 @@ public class SubscriptionController {
         ResponseEntity<FlowCustomer> customerResponseEntity = addCustomer(subscription);
         String customerId = "";
 
-        if(!customerResponseEntity.getStatusCode().is2xxSuccessful()) { //Response is other than 200, client already exists is code 401
-            return ResponseEntity.status(customerResponseEntity.getStatusCode()).build();
-        }
-        if (customerResponseEntity.getBody() != null) { //Response is 200 and has body
+        if(!customerResponseEntity.getStatusCode().is2xxSuccessful() || !customerResponseEntity.hasBody()) { //Response is other than 200, client already exists is code 401
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } else {
             customerId = customerResponseEntity.getBody().getCustomerId();
         }
 
@@ -74,8 +78,9 @@ public class SubscriptionController {
             var cancelResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
             if(!cancelResponse.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(cancelResponse.getStatusCode()).build();
 
-            if(cancelResponse.getBody().getInvoices().get(0).getStatus() == 0) {
-                var invoiceId = cancelResponse.getBody().getInvoices().get(0).getId();
+            FlowInvoice flowInvoice = cancelResponse.getBody().getInvoices().get(0);
+            if(flowInvoice.getStatus() == 0) {
+                var invoiceId = flowInvoice.getId();
                 var cancelInvoiceResponse = cancelInvoiceRequest(invoiceId);
                 if (!cancelInvoiceResponse.getStatusCode().is2xxSuccessful())
                     return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
@@ -118,8 +123,9 @@ public class SubscriptionController {
             var cancelSubscriptionResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
             if(!cancelSubscriptionResponse.getStatusCode().is2xxSuccessful() || !cancelSubscriptionResponse.hasBody()) return ResponseEntity.status(cancelSubscriptionResponse.getStatusCode()).build();
 
-            if(cancelSubscriptionResponse.getBody().getInvoices().get(0).getStatus() == 0) { //Cancel only when invoice is pendant, or else it will throw 400. This statement should always be true in case of STA-76
-                var invoiceId = cancelSubscriptionResponse.getBody().getInvoices().get(0).getId();
+            FlowInvoice flowInvoice = cancelSubscriptionResponse.getBody().getInvoices().get(0);
+            if(flowInvoice.getStatus() == 0) { //Cancel only when invoice is pendant, or else it will throw 400. This statement should always be true in case of STA-76
+                var invoiceId = flowInvoice.getId();
                 var cancelInvoiceResponse = cancelInvoiceRequest(invoiceId);
                 if (!cancelInvoiceResponse.getStatusCode().is2xxSuccessful())
                     return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
