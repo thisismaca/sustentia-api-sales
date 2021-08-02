@@ -12,6 +12,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -39,16 +40,15 @@ public class SubscriptionController {
         if(!flowSubscription.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(flowSubscription.getStatusCode()).build();
 
         if(!flowSubscription.hasBody()) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        FlowInvoice flowInvoice = flowSubscription.getBody().getInvoices().get(0);
-        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0 && flowInvoice.getStatus() == 1;
+        List<FlowInvoice> invoices = flowSubscription.getBody().getInvoices();
+        FlowInvoice flowLastInvoice = invoices.get(invoices.size()-1);
+        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0 && flowLastInvoice.getStatus() == 1;
 
-        if(localSubscription.get().isPaid() != isPaidInFlow) {
+        if(!isPaidInFlow) {
             localSubscription.get().setPaid(isPaidInFlow);
-            if(!isPaidInFlow) {
-                String paymentLink = getInvoiceLink(flowInvoice.getId());
-                if(paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-                localSubscription.get().setPaymentLink(paymentLink);
-            }
+            String paymentLink = getInvoiceLink(flowLastInvoice.getId());
+            if(paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            localSubscription.get().setPaymentLink(paymentLink);
             return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(localSubscription.get()));
         }
         return ResponseEntity.status(HttpStatus.OK).body(localSubscription.get());
