@@ -44,14 +44,11 @@ public class SubscriptionController {
         FlowInvoice flowLastInvoice = invoices.get(invoices.size()-1);
         boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0 && flowLastInvoice.getStatus() == 1;
 
-        if(!isPaidInFlow) {
-            localSubscription.get().setPaid(isPaidInFlow);
-            String paymentLink = getInvoiceLink(flowLastInvoice.getId());
-            if(paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            localSubscription.get().setPaymentLink(paymentLink);
-            return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(localSubscription.get()));
-        }
-        return ResponseEntity.status(HttpStatus.OK).body(localSubscription.get());
+        localSubscription.get().setPaid(isPaidInFlow);
+        String paymentLink = getInvoiceLink(flowLastInvoice.getId());
+        if(paymentLink == null && isPaidInFlow == false) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        localSubscription.get().setPaymentLink(paymentLink);
+        return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(localSubscription.get()));
     }
 
     @CrossOrigin(origins = "http://localhost:23930")
@@ -78,12 +75,14 @@ public class SubscriptionController {
             var cancelResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
             if(!cancelResponse.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(cancelResponse.getStatusCode()).build();
 
-            FlowInvoice flowInvoice = cancelResponse.getBody().getInvoices().get(0);
-            if(flowInvoice.getStatus() == 0) {
-                var invoiceId = flowInvoice.getId();
-                var cancelInvoiceResponse = cancelInvoiceRequest(invoiceId);
-                if (!cancelInvoiceResponse.getStatusCode().is2xxSuccessful())
-                    return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
+            List<FlowInvoice> invoices = cancelResponse.getBody().getInvoices();
+            for (FlowInvoice flowInvoice : invoices) {
+                if (flowInvoice.getStatus() == 0) {
+                    var invoiceId = flowInvoice.getId();
+                    var cancelInvoiceResponse = cancelInvoiceRequest(invoiceId);
+                    if (!cancelInvoiceResponse.getStatusCode().is2xxSuccessful())
+                        return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
+                }
             }
 
             subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
@@ -123,12 +122,14 @@ public class SubscriptionController {
             var cancelSubscriptionResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
             if(!cancelSubscriptionResponse.getStatusCode().is2xxSuccessful() || !cancelSubscriptionResponse.hasBody()) return ResponseEntity.status(cancelSubscriptionResponse.getStatusCode()).build();
 
-            FlowInvoice flowInvoice = cancelSubscriptionResponse.getBody().getInvoices().get(0);
-            if(flowInvoice.getStatus() == 0) { //Cancel only when invoice is pendant, or else it will throw 400. This statement should always be true in case of STA-76
-                var invoiceId = flowInvoice.getId();
-                var cancelInvoiceResponse = cancelInvoiceRequest(invoiceId);
-                if (!cancelInvoiceResponse.getStatusCode().is2xxSuccessful())
-                    return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
+            List<FlowInvoice> invoices = cancelSubscriptionResponse.getBody().getInvoices();
+            for (FlowInvoice flowInvoice : invoices) {
+                if (flowInvoice.getStatus() == 0) { //Cancel only when invoice is pendant, or else it will throw 400. This statement should always be true in case of STA-76
+                    var invoiceId = flowInvoice.getId();
+                    var cancelInvoiceResponse = cancelInvoiceRequest(invoiceId);
+                    if (!cancelInvoiceResponse.getStatusCode().is2xxSuccessful())
+                        return ResponseEntity.status(cancelInvoiceResponse.getStatusCode()).build();
+                }
             }
             var deleteCustomerResponse = deleteCustomerRequest(subscriptionRecord.getFlowCustomerId());
             if(!deleteCustomerResponse.getStatusCode().is2xxSuccessful() || !deleteCustomerResponse.hasBody()) return ResponseEntity.status(deleteCustomerResponse.getStatusCode()).build();
@@ -146,13 +147,11 @@ public class SubscriptionController {
             As soon as the subscription is created subscription status is "paid"
             (status = 1, morose = 0), which is not true. This case works fine when
             getting a subscription through the /get endpoint.
-            So, instead the real status
-
-            boolean paymentConfirmed = subscriptionResponse.getBody().getInvoices().get(0).getStatus() == 1;
              */
         if (flowSubscription.getStatusCode().is2xxSuccessful() && flowSubscription.getBody() != null) {
-            String invoiceId = flowSubscription.getBody().getInvoices().get(0).getId();
-            String paymentLink = getInvoiceLink(invoiceId);
+            List<FlowInvoice> invoices = flowSubscription.getBody().getInvoices();
+            FlowInvoice flowLastInvoice = invoices.get(invoices.size()-1);
+            String paymentLink = getInvoiceLink(flowLastInvoice.getId());
             if (paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
 
