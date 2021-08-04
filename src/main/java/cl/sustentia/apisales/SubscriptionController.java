@@ -1,5 +1,6 @@
 package cl.sustentia.apisales;
 
+import cl.sustentia.apisales.utils.SubscriptionStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -30,25 +31,40 @@ public class SubscriptionController {
         this.subscriptionRecordRepository = subscriptionRecordRepository;
     }
 
+    /*
+        @GetMapping("/getStatus")
+        public ResponseEntity<List<SubscriptionStatus>> getSubscriptionStatus() {
+            //Get all subscriptions
+            //For each subscription update according to flow and calculate status
+            //Return list
+            //return ResponseEntity.status(HttpStatus.OK).body(storeFrontRepository.findAll());
+        }
+    */
+    ResponseEntity<SubscriptionRecord> updateSubscription(SubscriptionRecord subscriptionRecord) {
+        SubscriptionRecord updatedRecord = subscriptionRecord;
+        var flowSubscription = getFlowSubscription(subscriptionRecord.getSubscriptionId());
+        if (!flowSubscription.getStatusCode().is2xxSuccessful())
+            return ResponseEntity.status(flowSubscription.getStatusCode()).build();
+        if (!flowSubscription.hasBody()) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+
+        List<FlowInvoice> invoices = flowSubscription.getBody().getInvoices();
+        FlowInvoice flowLastInvoice = invoices.get(invoices.size() - 1);
+        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0 && flowLastInvoice.getStatus() == 1;
+        String paymentLink = getInvoiceLink(flowLastInvoice.getId());
+        if (paymentLink == null && !isPaidInFlow)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        updatedRecord.setPaid(isPaidInFlow);
+        updatedRecord.setPaymentLink(paymentLink == null ? "" : paymentLink);
+        return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(updatedRecord));
+    }
+
     @CrossOrigin(origins = "http://localhost:23930")
     @PostMapping("/get")
     public ResponseEntity<SubscriptionRecord> getSubscription(@RequestBody SubscriptionRecord subscriptionRecord) {
         var localSubscription = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
-        if(localSubscription.isEmpty()) return ResponseEntity.status(HttpStatus.OK).build();
+        if (localSubscription.isEmpty()) return ResponseEntity.status(HttpStatus.OK).build();
 
-        var flowSubscription = getFlowSubscription(localSubscription.get().getSubscriptionId());
-        if(!flowSubscription.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(flowSubscription.getStatusCode()).build();
-
-        if(!flowSubscription.hasBody()) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        List<FlowInvoice> invoices = flowSubscription.getBody().getInvoices();
-        FlowInvoice flowLastInvoice = invoices.get(invoices.size()-1);
-        boolean isPaidInFlow = flowSubscription.getBody().getStatus() == 1 && flowSubscription.getBody().getMorose() == 0 && flowLastInvoice.getStatus() == 1;
-
-        localSubscription.get().setPaid(isPaidInFlow);
-        String paymentLink = getInvoiceLink(flowLastInvoice.getId());
-        if(paymentLink == null && isPaidInFlow == false) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        localSubscription.get().setPaymentLink(paymentLink);
-        return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(localSubscription.get()));
+        return updateSubscription(localSubscription.get());
     }
 
     @CrossOrigin(origins = "http://localhost:23930")
@@ -57,7 +73,7 @@ public class SubscriptionController {
         ResponseEntity<FlowCustomer> customerResponseEntity = addCustomer(subscription);
         String customerId = "";
 
-        if(!customerResponseEntity.getStatusCode().is2xxSuccessful() || !customerResponseEntity.hasBody()) { //Response is other than 200, client already exists is code 401
+        if (!customerResponseEntity.getStatusCode().is2xxSuccessful() || !customerResponseEntity.hasBody()) { //Response is other than 200, client already exists is code 401
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } else {
             customerId = customerResponseEntity.getBody().getCustomerId();
@@ -73,7 +89,8 @@ public class SubscriptionController {
     public ResponseEntity<SubscriptionRecord> upgrade(@RequestBody UpgradeSubscriptionRecord subscriptionRecord) {
         try {
             var cancelResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
-            if(!cancelResponse.getStatusCode().is2xxSuccessful()) return ResponseEntity.status(cancelResponse.getStatusCode()).build();
+            if (!cancelResponse.getStatusCode().is2xxSuccessful())
+                return ResponseEntity.status(cancelResponse.getStatusCode()).build();
 
             List<FlowInvoice> invoices = cancelResponse.getBody().getInvoices();
             for (FlowInvoice flowInvoice : invoices) {
@@ -88,14 +105,14 @@ public class SubscriptionController {
             subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
 
             ResponseEntity<FlowSubscription> subscriptionResponse;
-            if(subscriptionRecord.isPaid()) {
+            if (subscriptionRecord.isPaid()) {
                 subscriptionResponse = subscribe(subscriptionRecord.getFlowCustomerId(), subscriptionRecord.getPlanId(), subscriptionRecord.getCouponId());
             } else {
                 subscriptionResponse = subscribe(subscriptionRecord.getFlowCustomerId(), subscriptionRecord.getPlanId(), null);
             }
             return storeSubscription(subscriptionResponse, subscriptionRecord.getStoreId(), subscriptionRecord.getFlowCustomerId(), subscriptionRecord.getPlanId());
         } catch (Exception e) {
-            return  ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 
@@ -105,7 +122,8 @@ public class SubscriptionController {
     public ResponseEntity<SubscriptionRecord> cancel(@RequestBody SubscriptionRecord subscriptionRecord) {
         try {
             var cancelResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), false);
-            if(!cancelResponse.getStatusCode().is2xxSuccessful() || !cancelResponse.hasBody()) return ResponseEntity.status(cancelResponse.getStatusCode()).build();
+            if (!cancelResponse.getStatusCode().is2xxSuccessful() || !cancelResponse.hasBody())
+                return ResponseEntity.status(cancelResponse.getStatusCode()).build();
             var updatedSubscription = subscriptionRecord;
             updatedSubscription.setEnd_date(cancelResponse.getBody().getPeriod_end());
             return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(updatedSubscription));
@@ -120,7 +138,8 @@ public class SubscriptionController {
     public ResponseEntity<Boolean> delete(@RequestBody SubscriptionRecord subscriptionRecord) {
         try {
             var cancelSubscriptionResponse = cancelSubscription(subscriptionRecord.getSubscriptionId(), true);
-            if(!cancelSubscriptionResponse.getStatusCode().is2xxSuccessful() || !cancelSubscriptionResponse.hasBody()) return ResponseEntity.status(cancelSubscriptionResponse.getStatusCode()).build();
+            if (!cancelSubscriptionResponse.getStatusCode().is2xxSuccessful() || !cancelSubscriptionResponse.hasBody())
+                return ResponseEntity.status(cancelSubscriptionResponse.getStatusCode()).build();
 
             List<FlowInvoice> invoices = cancelSubscriptionResponse.getBody().getInvoices();
             for (FlowInvoice flowInvoice : invoices) {
@@ -132,14 +151,14 @@ public class SubscriptionController {
                 }
             }
             var deleteCustomerResponse = deleteCustomerRequest(subscriptionRecord.getFlowCustomerId());
-            if(!deleteCustomerResponse.getStatusCode().is2xxSuccessful() || !deleteCustomerResponse.hasBody()) return ResponseEntity.status(deleteCustomerResponse.getStatusCode()).build();
+            if (!deleteCustomerResponse.getStatusCode().is2xxSuccessful() || !deleteCustomerResponse.hasBody())
+                return ResponseEntity.status(deleteCustomerResponse.getStatusCode()).build();
             subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
             return ResponseEntity.ok(true);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
-
 
 
     private ResponseEntity<SubscriptionRecord> storeSubscription(ResponseEntity<FlowSubscription> flowSubscription, String storeId, String customerId, String planId) {
@@ -150,7 +169,7 @@ public class SubscriptionController {
              */
         if (flowSubscription.getStatusCode().is2xxSuccessful() && flowSubscription.getBody() != null) {
             List<FlowInvoice> invoices = flowSubscription.getBody().getInvoices();
-            FlowInvoice flowLastInvoice = invoices.get(invoices.size()-1);
+            FlowInvoice flowLastInvoice = invoices.get(invoices.size() - 1);
             String paymentLink = getInvoiceLink(flowLastInvoice.getId());
             if (paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
@@ -165,14 +184,14 @@ public class SubscriptionController {
     private String getInvoiceLink(String invoiceId) {
         String paramsUrl = "";
         try {
-            paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&invoiceId=" + invoiceId + "&s=" + sign("apiKey"+System.getenv("FLOW-API-KEY")+"invoiceId"+invoiceId);
+            paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&invoiceId=" + invoiceId + "&s=" + sign("apiKey" + System.getenv("FLOW-API-KEY") + "invoiceId" + invoiceId);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
         var invoiceRequest = restTemplate.getForEntity(
                 "https://sandbox.flow.cl/api/invoice/get?" + paramsUrl, FlowInvoice.class);
         if (invoiceRequest.getStatusCode().is2xxSuccessful() && invoiceRequest.getBody() != null)
-        return invoiceRequest.getBody().getPaymentLink();
+            return invoiceRequest.getBody().getPaymentLink();
         else return null;
     }
 
@@ -183,7 +202,7 @@ public class SubscriptionController {
         subscription.add("apiKey", System.getenv("FLOW-API-KEY"));
         subscription.add("planId", planId);
         subscription.add("customerId", customerId);
-        if(couponId != null) subscription.add("couponId", couponId);
+        if (couponId != null) subscription.add("couponId", couponId);
         try {
             subscription.add("s", sign(buildMessage(subscription)));
         } catch (UnsupportedEncodingException e) {
@@ -191,13 +210,13 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(subscription, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/subscription/create", request , FlowSubscription.class);
+                "https://sandbox.flow.cl/api/subscription/create", request, FlowSubscription.class);
     }
 
     ResponseEntity<FlowSubscription> getFlowSubscription(String subscriptionId) {
         String paramsUrl = "";
         try {
-            paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&subscriptionId=" + subscriptionId + "&s=" + sign("apiKey"+System.getenv("FLOW-API-KEY")+"subscriptionId"+subscriptionId);
+            paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&subscriptionId=" + subscriptionId + "&s=" + sign("apiKey" + System.getenv("FLOW-API-KEY") + "subscriptionId" + subscriptionId);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
@@ -208,7 +227,7 @@ public class SubscriptionController {
     ResponseEntity<FlowCustomer> addCustomer(Subscription subscription) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        MultiValueMap<String, String> customerMap= new LinkedMultiValueMap<>();
+        MultiValueMap<String, String> customerMap = new LinkedMultiValueMap<>();
         customerMap.add("apiKey", System.getenv("FLOW-API-KEY"));
         customerMap.add("email", subscription.getEmail());
         customerMap.add("externalId", subscription.getStoreId());
@@ -220,7 +239,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(customerMap, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/customer/create", request , FlowCustomer.class);
+                "https://sandbox.flow.cl/api/customer/create", request, FlowCustomer.class);
     }
 
     ResponseEntity<FlowSubscription> cancelSubscription(String subscriptionId, boolean cancelNow) {
@@ -237,7 +256,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(cancelRequest, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/subscription/cancel", request , FlowSubscription.class);
+                "https://sandbox.flow.cl/api/subscription/cancel", request, FlowSubscription.class);
     }
 
     ResponseEntity<FlowInvoice> cancelInvoiceRequest(String invoiceId) {
@@ -253,7 +272,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(cancelRequest, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/invoice/cancel", request , FlowInvoice.class);
+                "https://sandbox.flow.cl/api/invoice/cancel", request, FlowInvoice.class);
     }
 
     ResponseEntity<FlowCustomer> deleteCustomerRequest(String customerId) {
@@ -269,7 +288,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(deleteRequest, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/customer/delete", request , FlowCustomer.class);
+                "https://sandbox.flow.cl/api/customer/delete", request, FlowCustomer.class);
     }
 
     private String buildMessage(MultiValueMap<String, String> map) {
