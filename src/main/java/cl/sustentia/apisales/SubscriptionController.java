@@ -1,6 +1,5 @@
 package cl.sustentia.apisales;
 
-import cl.sustentia.apisales.utils.SubscriptionStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -11,11 +10,13 @@ import org.springframework.web.client.RestTemplate;
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.time.ZoneOffset;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 
 @RestController
 @RequestMapping(path = "api-sales/v1/subscription")
@@ -31,15 +32,56 @@ public class SubscriptionController {
         this.subscriptionRecordRepository = subscriptionRecordRepository;
     }
 
-    /*
-        @GetMapping("/getStatus")
-        public ResponseEntity<List<SubscriptionStatus>> getSubscriptionStatus() {
-            //Get all subscriptions
-            //For each subscription update according to flow and calculate status
-            //Return list
-            //return ResponseEntity.status(HttpStatus.OK).body(storeFrontRepository.findAll());
+    @GetMapping("/updateStatus")
+    public ResponseEntity<List<SubscriptionStatus>>updateSubscriptionStatus() {
+        List<Plan> plans = new LinkedList<>();
+        plans.add(new Plan("itata40", 40, 3));
+        plans.add(new Plan("diguillin100", 100, 5));
+        plans.add(new Plan("punilla150", 150, 7));
+        plans.add(new Plan("nevados", 7000, 1000));
+
+        var subscriptions = ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.findAll());
+        List<SubscriptionRecord> updatedSubscriptions = new LinkedList<>();
+        if(subscriptions.getStatusCode().isError()) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        for (SubscriptionRecord subscription : subscriptions.getBody()) {
+            var updatedSubscription = updateSubscription(subscription);
+            if(updatedSubscription.hasBody() && updatedSubscription.getStatusCode().is2xxSuccessful()) updatedSubscriptions.add(updatedSubscription.getBody());
+            else updatedSubscriptions.add(subscription); //If requests fails add old subscription anyway
         }
-    */
+
+        List<SubscriptionStatus> subscriptionStatuses = new LinkedList<>();
+
+        for(SubscriptionRecord updatedRecord : updatedSubscriptions) {
+            if(updatedRecord.getEnd_date() != null) {
+                var endDate = LocalDate.parse(updatedRecord.getEnd_date(), DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss"));
+                if(endDate.isBefore(LocalDate.now())) {
+                    delete(updatedRecord);
+                    continue;
+                }
+            }
+            int planMaxProducts = plans.stream().filter(plan -> plan.getId().equals(updatedRecord.getPlanId())).findFirst().get().getMaxProducts();
+            int planMaxAnnouncements = plans.stream().filter(plan -> plan.getId().equals(updatedRecord.getPlanId())).findFirst().get().getMaxAnnouncements();
+            if(updatedRecord.isPaid()) {
+                subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), false, planMaxProducts, planMaxAnnouncements));
+            } else {
+                boolean restricted = isRestricted(getPaymentHours(updatedRecord.getTimestamp()));
+                subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), restricted, restricted ? 20 : planMaxProducts, restricted ? 0 : planMaxAnnouncements));
+            }
+        }
+        return ResponseEntity.status(HttpStatus.OK).body(subscriptionStatuses);
+    }
+
+    boolean isRestricted(long hours) {
+        if (hours >= 72) return true;
+        return false;
+    }
+
+    long getPaymentHours(ZonedDateTime startDateTime) {
+        var now = ZonedDateTime.now(ZoneId.of("America/Santiago"));
+        var payDay = LocalDateTime.of(now.getYear(), now.getMonth(), startDateTime.getDayOfMonth()+1, startDateTime.getHour(), startDateTime.getMinute(), startDateTime.getSecond());
+        return ChronoUnit.HOURS.between(payDay, now);
+    }
+
     ResponseEntity<SubscriptionRecord> updateSubscription(SubscriptionRecord subscriptionRecord) {
         SubscriptionRecord updatedRecord = subscriptionRecord;
         var flowSubscription = getFlowSubscription(subscriptionRecord.getSubscriptionId());
@@ -172,7 +214,7 @@ public class SubscriptionController {
             FlowInvoice flowLastInvoice = invoices.get(invoices.size() - 1);
             String paymentLink = getInvoiceLink(flowLastInvoice.getId());
             if (paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+            ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Santiago"));
 
             SubscriptionRecord subscriptionRecord = new SubscriptionRecord(storeId, customerId, flowSubscription.getBody().getSubscriptionId(), planId, false, null, paymentLink, now);
             return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
