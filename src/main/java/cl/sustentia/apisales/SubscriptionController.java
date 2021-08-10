@@ -33,7 +33,7 @@ public class SubscriptionController {
     }
 
     @GetMapping("/updateStatus")
-    public ResponseEntity<List<SubscriptionStatus>>updateSubscriptionStatus() {
+    public ResponseEntity<List<SubscriptionStatus>> updateSubscriptionStatus() {
         List<Plan> plans = new LinkedList<>();
         plans.add(new Plan("itata40", 40, 3));
         plans.add(new Plan("diguillin100", 100, 5));
@@ -42,26 +42,28 @@ public class SubscriptionController {
 
         var subscriptions = ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.findAll());
         List<SubscriptionRecord> updatedSubscriptions = new LinkedList<>();
-        if(subscriptions.getStatusCode().isError()) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        if (subscriptions.getStatusCode().isError())
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         for (SubscriptionRecord subscription : subscriptions.getBody()) {
             var updatedSubscription = updateSubscription(subscription);
-            if(updatedSubscription.hasBody() && updatedSubscription.getStatusCode().is2xxSuccessful()) updatedSubscriptions.add(updatedSubscription.getBody());
+            if (updatedSubscription.hasBody() && updatedSubscription.getStatusCode().is2xxSuccessful())
+                updatedSubscriptions.add(updatedSubscription.getBody());
             else updatedSubscriptions.add(subscription); //If requests fails add old subscription anyway
         }
 
         List<SubscriptionStatus> subscriptionStatuses = new LinkedList<>();
 
-        for(SubscriptionRecord updatedRecord : updatedSubscriptions) {
-            if(updatedRecord.getEnd_date() != null) {
+        for (SubscriptionRecord updatedRecord : updatedSubscriptions) {
+            if (updatedRecord.getEnd_date() != null) {
                 var endDate = LocalDate.parse(updatedRecord.getEnd_date(), DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss"));
-                if(endDate.isBefore(LocalDate.now())) {
+                if (endDate.isBefore(LocalDate.now())) {
                     delete(updatedRecord);
                     continue;
                 }
             }
             int planMaxProducts = plans.stream().filter(plan -> plan.getId().equals(updatedRecord.getPlanId())).findFirst().get().getMaxProducts();
             int planMaxAnnouncements = plans.stream().filter(plan -> plan.getId().equals(updatedRecord.getPlanId())).findFirst().get().getMaxAnnouncements();
-            if(updatedRecord.isPaid()) {
+            if (updatedRecord.isPaid()) {
                 subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), false, planMaxProducts, planMaxAnnouncements));
             } else {
                 boolean restricted = isRestricted(getPaymentHours(updatedRecord.getTimestamp()));
@@ -78,7 +80,7 @@ public class SubscriptionController {
 
     long getPaymentHours(ZonedDateTime startDateTime) {
         var now = ZonedDateTime.now(ZoneId.of("America/Santiago"));
-        var payDay = LocalDateTime.of(now.getYear(), now.getMonth(), startDateTime.getDayOfMonth()+1, startDateTime.getHour(), startDateTime.getMinute(), startDateTime.getSecond());
+        var payDay = LocalDateTime.of(now.getYear(), now.getMonth(), startDateTime.getDayOfMonth() + 1, startDateTime.getHour(), startDateTime.getMinute(), startDateTime.getSecond());
         return ChronoUnit.HOURS.between(payDay, now);
     }
 
