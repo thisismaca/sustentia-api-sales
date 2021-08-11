@@ -22,14 +22,14 @@ import java.util.*;
 @RequestMapping(path = "api-sales/v1/subscription")
 public class SubscriptionController {
 
-    @Autowired
-    private RestTemplate restTemplate;
+    private final RestTemplate restTemplate;
 
     private final SubscriptionRecordRepository subscriptionRecordRepository;
 
     @Autowired
-    public SubscriptionController(SubscriptionRecordRepository subscriptionRecordRepository) {
+    public SubscriptionController(SubscriptionRecordRepository subscriptionRecordRepository, RestTemplate restTemplate) {
         this.subscriptionRecordRepository = subscriptionRecordRepository;
+        this.restTemplate = restTemplate;
     }
 
     @GetMapping("/updateStatus")
@@ -66,16 +66,14 @@ public class SubscriptionController {
             if (updatedRecord.isPaid()) {
                 subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), false, planMaxProducts, planMaxAnnouncements));
             } else {
-                boolean restricted = isRestricted(getPaymentHours(updatedRecord.getTimestamp()));
-                subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), restricted, restricted ? 20 : planMaxProducts, restricted ? 0 : planMaxAnnouncements));
+                if (getPaymentHours(updatedRecord.getTimestamp()) >= 72) {
+                    subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), true, 20, 0));
+                } else { //Between 72 hour range
+                    subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), true, planMaxProducts, planMaxAnnouncements));
+                }
             }
         }
         return ResponseEntity.status(HttpStatus.OK).body(subscriptionStatuses);
-    }
-
-    boolean isRestricted(long hours) {
-        if (hours >= 72) return true;
-        return false;
     }
 
     long getPaymentHours(ZonedDateTime startDateTime) {
@@ -228,7 +226,7 @@ public class SubscriptionController {
     private String getInvoiceLink(String invoiceId) {
         String paramsUrl = "";
         try {
-            paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&invoiceId=" + invoiceId + "&s=" + sign("apiKey" + System.getenv("FLOW-API-KEY") + "invoiceId" + invoiceId);
+            paramsUrl = "apiKey=" + System.getenv("FLOW_API_KEY") + "&invoiceId=" + invoiceId + "&s=" + sign("apiKey" + System.getenv("FLOW_API_KEY") + "invoiceId" + invoiceId);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
@@ -243,7 +241,7 @@ public class SubscriptionController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> subscription = new LinkedMultiValueMap<>();
-        subscription.add("apiKey", System.getenv("FLOW-API-KEY"));
+        subscription.add("apiKey", System.getenv("FLOW_API_KEY"));
         subscription.add("planId", planId);
         subscription.add("customerId", customerId);
         if (couponId != null) subscription.add("couponId", couponId);
@@ -260,7 +258,7 @@ public class SubscriptionController {
     ResponseEntity<FlowSubscription> getFlowSubscription(String subscriptionId) {
         String paramsUrl = "";
         try {
-            paramsUrl = "apiKey=" + System.getenv("FLOW-API-KEY") + "&subscriptionId=" + subscriptionId + "&s=" + sign("apiKey" + System.getenv("FLOW-API-KEY") + "subscriptionId" + subscriptionId);
+            paramsUrl = "apiKey=" + System.getenv("FLOW_API_KEY") + "&subscriptionId=" + subscriptionId + "&s=" + sign("apiKey" + System.getenv("FLOW_API_KEY") + "subscriptionId" + subscriptionId);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
@@ -272,7 +270,7 @@ public class SubscriptionController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> customerMap = new LinkedMultiValueMap<>();
-        customerMap.add("apiKey", System.getenv("FLOW-API-KEY"));
+        customerMap.add("apiKey", System.getenv("FLOW_API_KEY"));
         customerMap.add("email", subscription.getEmail());
         customerMap.add("externalId", subscription.getStoreId());
         customerMap.add("name", subscription.getName());
@@ -290,7 +288,7 @@ public class SubscriptionController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> cancelRequest = new LinkedMultiValueMap<>();
-        cancelRequest.add("apiKey", System.getenv("FLOW-API-KEY"));
+        cancelRequest.add("apiKey", System.getenv("FLOW_API_KEY"));
         cancelRequest.add("at_period_end", cancelNow ? "0" : "1");
         cancelRequest.add("subscriptionId", subscriptionId);
         try {
@@ -307,7 +305,7 @@ public class SubscriptionController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> cancelRequest = new LinkedMultiValueMap<>();
-        cancelRequest.add("apiKey", System.getenv("FLOW-API-KEY"));
+        cancelRequest.add("apiKey", System.getenv("FLOW_API_KEY"));
         cancelRequest.add("invoiceId", invoiceId);
         try {
             cancelRequest.add("s", sign(buildMessage(cancelRequest)));
@@ -323,7 +321,7 @@ public class SubscriptionController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> deleteRequest = new LinkedMultiValueMap<>();
-        deleteRequest.add("apiKey", System.getenv("FLOW-API-KEY"));
+        deleteRequest.add("apiKey", System.getenv("FLOW_API_KEY"));
         deleteRequest.add("customerId", customerId);
         try {
             deleteRequest.add("s", sign(buildMessage(deleteRequest)));
@@ -345,6 +343,6 @@ public class SubscriptionController {
     }
 
     private String sign(String message) throws UnsupportedEncodingException {
-        return String.format("%064x", new BigInteger(1, HMAC.calcHmacSha256(System.getenv("FLOW-SECRET-KEY").getBytes(StandardCharsets.UTF_8), message.getBytes(StandardCharsets.UTF_8))));
+        return String.format("%064x", new BigInteger(1, HMAC.calcHmacSha256(System.getenv("FLOW_SECRET_KEY").getBytes(StandardCharsets.UTF_8), message.getBytes(StandardCharsets.UTF_8))));
     }
 }

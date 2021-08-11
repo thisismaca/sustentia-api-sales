@@ -38,8 +38,8 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
     @Bean
     public MongoClient mongoClient() {
 
-        String username = System.getenv("MDB-STORE-USR");
-        String password = System.getenv("MDB-STORE-PASS");
+        String username = System.getenv("MDB_STORE_USR");
+        String password = System.getenv("MDB_STORE_PASS");
         ConnectionString connString = new ConnectionString(
                 "mongodb+srv://"+username+":"+password+"@cluster0.kbccf.mongodb.net/sustentia-db?ssl=true&w=majority"
         );
