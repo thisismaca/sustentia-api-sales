@@ -67,7 +67,8 @@ public class SubscriptionController {
                 subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), false, planMaxProducts, planMaxAnnouncements));
             } else {
                 if (getPaymentHours(updatedRecord.getTimestamp()) >= 72) {
-                    subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), true, 20, 0));
+                    //subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), true, 20, 0));
+                    delete(updatedRecord);
                 } else { //Between 72 hour range
                     subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), true, planMaxProducts, planMaxAnnouncements));
                 }
