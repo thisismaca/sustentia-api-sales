@@ -236,10 +236,20 @@ public class SubscriptionController {
             subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
             return ResponseEntity.ok(true);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
+    //Instant cancellation and elimination of records when deleting Store.
+    @DeleteMapping(value = "/delete/{storeId}")
+    public ResponseEntity<Boolean> delete(@PathVariable String storeId) {
+        var subscriptionRecord = subscriptionRecordRepository.findById(storeId);
+        if(subscriptionRecord.isPresent()) {
+            return delete(subscriptionRecord.get());
+        } else {
+            return ResponseEntity.ok(true);
+        }
+    }
 
     private ResponseEntity<SubscriptionRecord> storeSubscription(ResponseEntity<FlowSubscription> flowSubscription, String storeId, String customerId, String planId) {
         /*
