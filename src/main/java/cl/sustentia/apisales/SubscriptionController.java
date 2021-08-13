@@ -1,5 +1,16 @@
 package cl.sustentia.apisales;
 
+import com.google.api.client.http.GenericUrl;
+import com.google.api.client.http.HttpContent;
+import com.google.api.client.http.HttpResponse;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.http.json.JsonHttpContent;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.IdTokenCredentials;
+import com.google.auth.oauth2.IdTokenProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -7,6 +18,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -107,7 +119,32 @@ public class SubscriptionController {
         var localSubscription = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
         if (localSubscription.isEmpty()) return ResponseEntity.status(HttpStatus.OK).build();
 
-        return updateSubscription(localSubscription.get());
+        var updatedSubscription = updateSubscription(localSubscription.get());
+        if(updatedSubscription.hasBody() && updatedSubscription.getStatusCode().is2xxSuccessful()) {
+            updateStoreFrontStatus(updatedSubscription.getBody());
+            //TODO: Find out what to do in case the previous request fails
+        }
+        return updatedSubscription;
+    }
+
+    public void updateStoreFrontStatus(SubscriptionRecord updatedSubscription) {
+        List<Plan> plans = new LinkedList<>();
+        plans.add(new Plan("itata40", 40, 3));
+        plans.add(new Plan("diguillin100", 100, 5));
+        plans.add(new Plan("punilla150", 150, 7));
+        plans.add(new Plan("nevados", 7000, 1000));
+
+        int planMaxProducts = plans.stream().filter(plan -> plan.getId().equals(updatedSubscription.getPlanId())).findFirst().get().getMaxProducts();
+        int planMaxAnnouncements = plans.stream().filter(plan -> plan.getId().equals(updatedSubscription.getPlanId())).findFirst().get().getMaxAnnouncements();
+
+        if (updatedSubscription.isPaid()) {
+            var newStatus = new SubscriptionStatus(updatedSubscription.getStoreId(), false, planMaxProducts, planMaxAnnouncements);
+            try {
+                makePostRequest("https://api-store-ftkdsvve7a-rj.a.run.app/api-store/v1/store-fronts/update/" + newStatus.getStoreId(), newStatus);
+            } catch (IOException e) {
+                System.out.println("Update status failed for " + newStatus.getStoreId());
+            }
+        }
     }
 
     @CrossOrigin(origins = "http://localhost:23930")
@@ -345,5 +382,24 @@ public class SubscriptionController {
 
     private String sign(String message) throws UnsupportedEncodingException {
         return String.format("%064x", new BigInteger(1, HMAC.calcHmacSha256(System.getenv("FLOW_SECRET_KEY").getBytes(StandardCharsets.UTF_8), message.getBytes(StandardCharsets.UTF_8))));
+    }
+
+    public static HttpResponse makePostRequest(String serviceUrl, SubscriptionStatus data) throws IOException {
+        GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
+        if (!(credentials instanceof IdTokenProvider)) {
+            throw new IllegalArgumentException("Credentials are not an instance of IdTokenProvider.");
+        }
+        IdTokenCredentials tokenCredential =
+                IdTokenCredentials.newBuilder()
+                        .setIdTokenProvider((IdTokenProvider) credentials)
+                        .setTargetAudience(serviceUrl)
+                        .build();
+
+        HttpContent content = new JsonHttpContent(new GsonFactory(), data);
+        GenericUrl genericUrl = new GenericUrl(serviceUrl);
+        HttpCredentialsAdapter adapter = new HttpCredentialsAdapter(tokenCredential);
+        HttpTransport transport = new NetHttpTransport();
+        com.google.api.client.http.HttpRequest request = transport.createRequestFactory(adapter).buildPostRequest(genericUrl, content);
+        return request.execute();
     }
 }

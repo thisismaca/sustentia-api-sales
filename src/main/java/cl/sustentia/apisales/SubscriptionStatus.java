@@ -1,10 +1,16 @@
 package cl.sustentia.apisales;
 
+import com.google.api.client.util.Key;
+
 public class SubscriptionStatus {
 
+    @Key
     private final String storeId;
+    @Key
     private final boolean restricted;
+    @Key
     private final int maxProducts;
+    @Key
     private final int maxAnnouncements;
 
     public SubscriptionStatus(String storeId, boolean restricted, int maxProducts, int maxAnnouncements) {
