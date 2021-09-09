@@ -113,7 +113,7 @@ public class SubscriptionController {
         return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(updatedRecord));
     }
 
-    @CrossOrigin(origins = "http://localhost:23930")
+    @CrossOrigin(origins = {"http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl"})
     @PostMapping("/get")
     public ResponseEntity<SubscriptionRecord> getSubscription(@RequestBody SubscriptionRecord subscriptionRecord) {
         var localSubscription = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
@@ -147,7 +147,7 @@ public class SubscriptionController {
         }
     }
 
-    @CrossOrigin(origins = "http://localhost:23930")
+    @CrossOrigin(origins = {"http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl"})
     @PostMapping(value = "/register")
     public ResponseEntity<SubscriptionRecord> register(@RequestBody Subscription subscription) {
         ResponseEntity<FlowCustomer> customerResponseEntity = addCustomer(subscription);
@@ -164,7 +164,7 @@ public class SubscriptionController {
         return storeSubscription(subscriptionResponse, subscription.getStoreId(), customerId, subscription.getPlanId());
     }
 
-    @CrossOrigin(origins = "http://localhost:23930")
+    @CrossOrigin(origins = {"http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl"})
     @PostMapping(value = "/upgrade")
     public ResponseEntity<SubscriptionRecord> upgrade(@RequestBody UpgradeSubscriptionRecord subscriptionRecord) {
         try {
@@ -197,7 +197,7 @@ public class SubscriptionController {
     }
 
     //Cancellation by the end of the period. Only applies to paid subscriptions
-    @CrossOrigin(origins = "http://localhost:23930")
+    @CrossOrigin(origins = {"http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl"})
     @PostMapping(value = "/cancel")
     public ResponseEntity<SubscriptionRecord> cancel(@RequestBody SubscriptionRecord subscriptionRecord) {
         try {
@@ -213,7 +213,7 @@ public class SubscriptionController {
     }
 
     //Instant cancellation and elimination of records.
-    @CrossOrigin(origins = "http://localhost:23930")
+    @CrossOrigin(origins = {"http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl"})
     @PostMapping(value = "/delete")
     public ResponseEntity<Boolean> delete(@RequestBody SubscriptionRecord subscriptionRecord) {
         try {
