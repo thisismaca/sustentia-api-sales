@@ -25,10 +25,11 @@ public class ApiSalesApplication {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/get").allowedOrigins("http://localhost:23930").allowedMethods("GET", "POST");
-                registry.addMapping("/register").allowedOrigins("http://localhost:23930").allowedMethods("GET", "POST");
-                registry.addMapping("/upgrade").allowedOrigins("http://localhost:23930").allowedMethods("GET", "POST");
-                registry.addMapping("/cancel").allowedOrigins("http://localhost:23930").allowedMethods("GET", "POST");
+                registry.addMapping("/get").allowedOrigins("http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl").allowedMethods("GET", "POST");
+                registry.addMapping("/register").allowedOrigins("http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl").allowedMethods("GET", "POST");
+                registry.addMapping("/upgrade").allowedOrigins("http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl").allowedMethods("GET", "POST");
+                registry.addMapping("/cancel").allowedOrigins("http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl").allowedMethods("GET", "POST");
+                registry.addMapping("/delete").allowedOrigins("http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl").allowedMethods("POST");
             }
         };
     }
