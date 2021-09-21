@@ -38,3 +38,5 @@ out/
 
 ### Mac ###
 .DS_Store
+/deploy.run/
+/local.run/
