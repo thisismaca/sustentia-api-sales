@@ -34,6 +34,8 @@ import java.util.*;
 @RequestMapping(path = "api-sales/v1/subscription")
 public class SubscriptionController {
 
+    private String FLOW_PREFIX = "https://sandbox.flow.cl/";//https://www.flow.cl/
+
     private final RestTemplate restTemplate;
 
     private final SubscriptionRecordRepository subscriptionRecordRepository;
@@ -279,7 +281,7 @@ public class SubscriptionController {
             e.printStackTrace();
         }
         var invoiceRequest = restTemplate.getForEntity(
-                "https://sandbox.flow.cl/api/invoice/get?" + paramsUrl, FlowInvoice.class);
+                FLOW_PREFIX+ "api/invoice/get?" + paramsUrl, FlowInvoice.class);
         if (invoiceRequest.getStatusCode().is2xxSuccessful() && invoiceRequest.getBody() != null)
             return invoiceRequest.getBody().getPaymentLink();
         else return null;
@@ -300,7 +302,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(subscription, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/subscription/create", request, FlowSubscription.class);
+                FLOW_PREFIX + "api/subscription/create", request, FlowSubscription.class);
     }
 
     ResponseEntity<FlowSubscription> getFlowSubscription(String subscriptionId) {
@@ -311,7 +313,7 @@ public class SubscriptionController {
             e.printStackTrace();
         }
         return restTemplate.getForEntity(
-                "https://sandbox.flow.cl/api/subscription/get?" + paramsUrl, FlowSubscription.class);
+                FLOW_PREFIX + "api/subscription/get?" + paramsUrl, FlowSubscription.class);
     }
 
     ResponseEntity<FlowCustomer> addCustomer(Subscription subscription) {
@@ -329,7 +331,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(customerMap, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/customer/create", request, FlowCustomer.class);
+                FLOW_PREFIX + "api/customer/create", request, FlowCustomer.class);
     }
 
     ResponseEntity<FlowSubscription> cancelSubscription(String subscriptionId, boolean cancelNow) {
@@ -346,7 +348,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(cancelRequest, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/subscription/cancel", request, FlowSubscription.class);
+                FLOW_PREFIX + "api/subscription/cancel", request, FlowSubscription.class);
     }
 
     ResponseEntity<FlowInvoice> cancelInvoiceRequest(String invoiceId) {
@@ -362,7 +364,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(cancelRequest, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/invoice/cancel", request, FlowInvoice.class);
+                FLOW_PREFIX + "api/invoice/cancel", request, FlowInvoice.class);
     }
 
     ResponseEntity<FlowCustomer> deleteCustomerRequest(String customerId) {
@@ -378,7 +380,7 @@ public class SubscriptionController {
         }
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(deleteRequest, headers);
         return restTemplate.postForEntity(
-                "https://sandbox.flow.cl/api/customer/delete", request, FlowCustomer.class);
+                FLOW_PREFIX + "api/customer/delete", request, FlowCustomer.class);
     }
 
     private String buildMessage(MultiValueMap<String, String> map) {
