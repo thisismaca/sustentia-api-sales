@@ -34,7 +34,7 @@ import java.util.*;
 @RequestMapping(path = "api-sales/v1/subscription")
 public class SubscriptionController {
 
-    private String FLOW_PREFIX = "https://sandbox.flow.cl/";//https://www.flow.cl/
+    private String FLOW_PREFIX = System.getenv("FLOW_URL_PREFIX");//"https://sandbox.flow.cl/";//https://www.flow.cl/
 
     private final RestTemplate restTemplate;
 
