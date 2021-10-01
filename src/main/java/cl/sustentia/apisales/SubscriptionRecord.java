@@ -1,13 +1,12 @@
 package cl.sustentia.apisales;
 
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.MongoId;
+import com.google.cloud.firestore.annotation.DocumentId;
 
 import java.time.ZonedDateTime;
 
-@Document(collection = "subscriptions")
 public class SubscriptionRecord {
 
+    @DocumentId
     private String storeId;
     private String flowCustomerId;
     private String subscriptionId;
