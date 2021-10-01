@@ -34,16 +34,15 @@ import java.util.*;
 @RequestMapping(path = "api-sales/v1/subscription")
 public class SubscriptionController {
 
-    private String FLOW_PREFIX = System.getenv("FLOW_URL_PREFIX");//"https://sandbox.flow.cl/";//https://www.flow.cl/
+    private final String FLOW_PREFIX = System.getenv("FLOW_URL_PREFIX");//"https://sandbox.flow.cl/";//https://www.flow.cl/
 
     private final RestTemplate restTemplate;
-
-    private final SubscriptionRecordRepository subscriptionRecordRepository;
+    private final FirestoreSubscriptionRepository firestoreSubscriptionRepository;
 
     @Autowired
-    public SubscriptionController(SubscriptionRecordRepository subscriptionRecordRepository, RestTemplate restTemplate) {
-        this.subscriptionRecordRepository = subscriptionRecordRepository;
+    public SubscriptionController(RestTemplate restTemplate, FirestoreSubscriptionRepository firestoreSubscriptionRepository) {
         this.restTemplate = restTemplate;
+        this.firestoreSubscriptionRepository = firestoreSubscriptionRepository;
     }
 
     @GetMapping("/updateStatus")
@@ -54,7 +53,7 @@ public class SubscriptionController {
         plans.add(new Plan("punilla150", 150, 7));
         plans.add(new Plan("nevados", 7000, 1000));
 
-        var subscriptions = ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.findAll());
+        var subscriptions = ResponseEntity.status(HttpStatus.OK).body(firestoreSubscriptionRepository.getAll());
         List<SubscriptionRecord> updatedSubscriptions = new LinkedList<>();
         if (subscriptions.getStatusCode().isError())
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -112,16 +111,16 @@ public class SubscriptionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         updatedRecord.setPaid(isPaidInFlow);
         updatedRecord.setPaymentLink(paymentLink == null ? "" : paymentLink);
-        return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(updatedRecord));
+        return ResponseEntity.status(HttpStatus.OK).body(firestoreSubscriptionRepository.save(updatedRecord));
     }
 
     @CrossOrigin(origins = {"http://localhost:23930", "https://sustentia.cl", "https://www.sustentia.cl"})
     @PostMapping("/get")
     public ResponseEntity<SubscriptionRecord> getSubscription(@RequestBody SubscriptionRecord subscriptionRecord) {
-        var localSubscription = subscriptionRecordRepository.findById(subscriptionRecord.getStoreId());
-        if (localSubscription.isEmpty()) return ResponseEntity.status(HttpStatus.OK).build();
+        var localSubscription = firestoreSubscriptionRepository.get(subscriptionRecord.getStoreId());
+        if (localSubscription == null) return ResponseEntity.status(HttpStatus.OK).build();
 
-        var updatedSubscription = updateSubscription(localSubscription.get());
+        var updatedSubscription = updateSubscription(localSubscription);
         if(updatedSubscription.hasBody() && updatedSubscription.getStatusCode().is2xxSuccessful()) {
             updateStoreFrontStatus(updatedSubscription.getBody());
             //TODO: Find out what to do in case the previous request fails
@@ -184,7 +183,7 @@ public class SubscriptionController {
                 }
             }
 
-            subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
+            firestoreSubscriptionRepository.delete(subscriptionRecord.getStoreId());
 
             ResponseEntity<FlowSubscription> subscriptionResponse;
             if (subscriptionRecord.isPaid()) {
@@ -208,7 +207,7 @@ public class SubscriptionController {
                 return ResponseEntity.status(cancelResponse.getStatusCode()).build();
             var updatedSubscription = subscriptionRecord;
             updatedSubscription.setEnd_date(cancelResponse.getBody().getPeriod_end());
-            return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(updatedSubscription));
+            return ResponseEntity.status(HttpStatus.OK).body(firestoreSubscriptionRepository.save(updatedSubscription));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
@@ -235,7 +234,7 @@ public class SubscriptionController {
             var deleteCustomerResponse = deleteCustomerRequest(subscriptionRecord.getFlowCustomerId());
             if (!deleteCustomerResponse.getStatusCode().is2xxSuccessful() || !deleteCustomerResponse.hasBody())
                 return ResponseEntity.status(deleteCustomerResponse.getStatusCode()).build();
-            subscriptionRecordRepository.deleteById(subscriptionRecord.getStoreId());
+            firestoreSubscriptionRepository.delete(subscriptionRecord.getStoreId());
             return ResponseEntity.ok(true);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -245,9 +244,9 @@ public class SubscriptionController {
     //Instant cancellation and elimination of records when deleting Store.
     @DeleteMapping(value = "/delete/{storeId}")
     public ResponseEntity<Boolean> delete(@PathVariable String storeId) {
-        var subscriptionRecord = subscriptionRecordRepository.findById(storeId);
-        if(subscriptionRecord.isPresent()) {
-            return delete(subscriptionRecord.get());
+        var subscriptionRecord = firestoreSubscriptionRepository.get(storeId);
+        if(subscriptionRecord != null) {
+            return delete(subscriptionRecord);
         } else {
             return ResponseEntity.ok(true);
         }
@@ -267,7 +266,7 @@ public class SubscriptionController {
             ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Santiago"));
 
             SubscriptionRecord subscriptionRecord = new SubscriptionRecord(storeId, customerId, flowSubscription.getBody().getSubscriptionId(), planId, false, null, paymentLink, now);
-            return ResponseEntity.status(HttpStatus.OK).body(subscriptionRecordRepository.save(subscriptionRecord));
+            return ResponseEntity.status(HttpStatus.OK).body(firestoreSubscriptionRepository.save(subscriptionRecord));
         } else {
             return ResponseEntity.status(flowSubscription.getStatusCode()).build();
         }
