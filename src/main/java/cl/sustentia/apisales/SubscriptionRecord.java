@@ -8,15 +8,17 @@ import java.time.ZonedDateTime;
 @Document(collection = "subscriptions")
 public class SubscriptionRecord {
 
-    @MongoId
-    private final String storeId;
-    private final String flowCustomerId;
-    private final String subscriptionId;
-    private final String planId;
+    private String storeId;
+    private String flowCustomerId;
+    private String subscriptionId;
+    private String planId;
     private boolean paid;
     private String end_date;
     private String paymentLink;
     private ZonedDateTime timestamp;
+
+    public SubscriptionRecord() {
+    }
 
     public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid, String end_date, String paymentLink, ZonedDateTime timestamp) {
         this.storeId = storeId;
