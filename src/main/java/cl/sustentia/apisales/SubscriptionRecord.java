@@ -2,8 +2,6 @@ package cl.sustentia.apisales;
 
 import com.google.cloud.firestore.annotation.DocumentId;
 
-import java.time.ZonedDateTime;
-
 public class SubscriptionRecord {
 
     @DocumentId
@@ -14,12 +12,12 @@ public class SubscriptionRecord {
     private boolean paid;
     private String end_date;
     private String paymentLink;
-    private ZonedDateTime timestamp;
+    private String timestamp;
 
     public SubscriptionRecord() {
     }
 
-    public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid, String end_date, String paymentLink, ZonedDateTime timestamp) {
+    public SubscriptionRecord(String storeId, String flowCustomerId, String subscriptionId, String planId, boolean paid, String end_date, String paymentLink, String timestamp) {
         this.storeId = storeId;
         this.flowCustomerId = flowCustomerId;
         this.subscriptionId = subscriptionId;
@@ -70,7 +68,7 @@ public class SubscriptionRecord {
         this.paymentLink = paymentLink;
     }
 
-    public ZonedDateTime getTimestamp() {
+    public String getTimestamp() {
         return timestamp;
     }
 }

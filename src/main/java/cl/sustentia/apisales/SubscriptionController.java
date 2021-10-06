@@ -79,7 +79,7 @@ public class SubscriptionController {
             if (updatedRecord.isPaid()) {
                 subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), false, planMaxProducts, planMaxAnnouncements));
             } else {
-                if (getPaymentHours(updatedRecord.getTimestamp()) >= 72) {
+                if (getPaymentHours(getTimestampAsDate(updatedRecord.getTimestamp())) >= 72) {
                     //subscriptionStatuses.add(new SubscriptionStatus(updatedRecord.getStoreId(), true, 20, 0));
                     delete(updatedRecord);
                 } else { //Between 72 hour range
@@ -265,7 +265,7 @@ public class SubscriptionController {
             if (paymentLink == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Santiago"));
 
-            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(storeId, customerId, flowSubscription.getBody().getSubscriptionId(), planId, false, null, paymentLink, now);
+            SubscriptionRecord subscriptionRecord = new SubscriptionRecord(storeId, customerId, flowSubscription.getBody().getSubscriptionId(), planId, false, null, paymentLink, now.toString());
             return ResponseEntity.status(HttpStatus.OK).body(firestoreSubscriptionRepository.save(subscriptionRecord));
         } else {
             return ResponseEntity.status(flowSubscription.getStatusCode()).build();
@@ -412,5 +412,15 @@ public class SubscriptionController {
         HttpTransport transport = new NetHttpTransport();
         com.google.api.client.http.HttpRequest request = transport.createRequestFactory(adapter).buildPostRequest(genericUrl, content);
         return request.execute();
+    }
+
+
+    public ZonedDateTime getTimestampAsDate(String timestamp) {
+        try {
+            return ZonedDateTime.parse(timestamp, DateTimeFormatter.ISO_INSTANT);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+        return null;
     }
 }
