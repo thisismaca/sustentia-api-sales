@@ -45,6 +45,13 @@ public class SubscriptionController {
         this.firestoreSubscriptionRepository = firestoreSubscriptionRepository;
     }
 
+    @PostMapping("/saveSustainable/{storeId}")
+    public ResponseEntity<SubscriptionRecord> saveSustainable(@PathVariable String storeId) {
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Santiago"));
+        SubscriptionRecord subscriptionRecord = new SubscriptionRecord(storeId, "", "", "sustentable", true, null, "", now.toString());
+        return ResponseEntity.status(HttpStatus.OK).body(firestoreSubscriptionRepository.save(subscriptionRecord));
+    }
+
     @GetMapping("/updateStatus")
     public ResponseEntity<List<SubscriptionStatus>> updateSubscriptionStatus() {
         List<Plan> plans = new LinkedList<>();
@@ -52,12 +59,17 @@ public class SubscriptionController {
         plans.add(new Plan("diguillin100", 100, 5));
         plans.add(new Plan("punilla150", 150, 7));
         plans.add(new Plan("nevados", 7000, 1000));
+        plans.add(new Plan("sustentable", 7000, 1000));
 
         var subscriptions = ResponseEntity.status(HttpStatus.OK).body(firestoreSubscriptionRepository.getAll());
         List<SubscriptionRecord> updatedSubscriptions = new LinkedList<>();
         if (subscriptions.getStatusCode().isError())
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         for (SubscriptionRecord subscription : subscriptions.getBody()) {
+            if  (subscription.getPlanId().equals("sustentable")) {
+                updatedSubscriptions.add(subscription);
+                continue;
+            }
             var updatedSubscription = updateSubscription(subscription);
             if (updatedSubscription.hasBody() && updatedSubscription.getStatusCode().is2xxSuccessful())
                 updatedSubscriptions.add(updatedSubscription.getBody());
