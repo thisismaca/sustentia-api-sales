@@ -39,6 +39,13 @@ public class SubscriptionController {
     private final RestTemplate restTemplate;
     private final FirestoreSubscriptionRepository firestoreSubscriptionRepository;
 
+    private final List<Plan> plans = Arrays.asList(
+            new Plan("itata40", 40, 3),
+            new Plan("diguillin100", 100, 5),
+            new Plan("punilla150", 150, 7),
+            new Plan("nevados", 7000, 1000),
+            new Plan("premium", 7000, 1000));
+
     @Autowired
     public SubscriptionController(RestTemplate restTemplate, FirestoreSubscriptionRepository firestoreSubscriptionRepository) {
         this.restTemplate = restTemplate;
@@ -54,13 +61,6 @@ public class SubscriptionController {
 
     @GetMapping("/updateStatus")
     public ResponseEntity<List<SubscriptionStatus>> updateSubscriptionStatus() {
-        List<Plan> plans = new LinkedList<>();
-        plans.add(new Plan("itata40", 40, 3));
-        plans.add(new Plan("diguillin100", 100, 5));
-        plans.add(new Plan("punilla150", 150, 7));
-        plans.add(new Plan("nevados", 7000, 1000));
-        plans.add(new Plan("sustentable", 7000, 1000));
-
         var subscriptions = ResponseEntity.status(HttpStatus.OK).body(firestoreSubscriptionRepository.getAll());
         List<SubscriptionRecord> updatedSubscriptions = new LinkedList<>();
         if (subscriptions.getStatusCode().isError())
@@ -141,12 +141,6 @@ public class SubscriptionController {
     }
 
     public void updateStoreFrontStatus(SubscriptionRecord updatedSubscription) {
-        List<Plan> plans = new LinkedList<>();
-        plans.add(new Plan("itata40", 40, 3));
-        plans.add(new Plan("diguillin100", 100, 5));
-        plans.add(new Plan("punilla150", 150, 7));
-        plans.add(new Plan("nevados", 7000, 1000));
-
         int planMaxProducts = plans.stream().filter(plan -> plan.getId().equals(updatedSubscription.getPlanId())).findFirst().get().getMaxProducts();
         int planMaxAnnouncements = plans.stream().filter(plan -> plan.getId().equals(updatedSubscription.getPlanId())).findFirst().get().getMaxAnnouncements();
 
