@@ -40,10 +40,6 @@ public class SubscriptionController {
     private final FirestoreSubscriptionRepository firestoreSubscriptionRepository;
 
     private final List<Plan> plans = Arrays.asList(
-            new Plan("itata40", 40, 3),
-            new Plan("diguillin100", 100, 5),
-            new Plan("punilla150", 150, 7),
-            new Plan("nevados", 7000, 1000),
             new Plan("premium", 7000, 1000));
 
     @Autowired
