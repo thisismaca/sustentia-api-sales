@@ -127,7 +127,7 @@ public class SubscriptionController {
     public ResponseEntity<SubscriptionRecord> getSubscription(@RequestBody SubscriptionRecord subscriptionRecord) {
         var localSubscription = firestoreSubscriptionRepository.get(subscriptionRecord.getStoreId());
         if (localSubscription == null) return ResponseEntity.status(HttpStatus.OK).build();
-
+        if (localSubscription.getPlanId().equals("sustentable")) return ResponseEntity.ok(localSubscription);
         var updatedSubscription = updateSubscription(localSubscription);
         if(updatedSubscription.hasBody() && updatedSubscription.getStatusCode().is2xxSuccessful()) {
             updateStoreFrontStatus(updatedSubscription.getBody());
