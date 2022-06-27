@@ -144,7 +144,7 @@ public class SubscriptionController {
         if (updatedSubscription.isPaid()) {
             var newStatus = new SubscriptionStatus(updatedSubscription.getStoreId(), false, planMaxProducts, planMaxAnnouncements);
             try {
-                makePostRequest("https://api-store-ftkdsvve7a-rj.a.run.app/api-store/v1/store-fronts/update/" + newStatus.getStoreId(), newStatus);
+                makePostRequest("" + newStatus.getStoreId(), newStatus);
             } catch (IOException e) {
                 System.out.println("Update status failed for " + newStatus.getStoreId());
             }
